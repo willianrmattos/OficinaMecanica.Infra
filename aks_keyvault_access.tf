@@ -1,24 +1,16 @@
-# Optei por deixar na raiz (nao dentro de aks/ nem keyvault/):
-# a role assignment abaixo precisa do ID do Key Vault (saida do modulo
-# keyvault) e o data source precisa de saidas do modulo aks - se qualquer um
-# dos dois vivesse dentro do outro modulo, os dois module blocks passariam a
-# depender um do outro (dependencia circular, que o Terraform recusa).
-
-# Concede a managed identity do addon CSI Secrets Store driver (modulo aks)
-# permissao de leitura no Key Vault (modulo keyvault) - mesmo papel que
-# antes vivia dentro de aks/main.tf.
+# Optei por deixar na raiz (nao dentro de aks/ nem keyvault/): a role
+# assignment abaixo precisa do ID do Key Vault (saida do modulo keyvault) e
+# do principal do addon CSI (saida do modulo aks) - se vivesse dentro de
+# qualquer um dos dois, os module blocks passariam a depender um do outro
+# (dependencia circular, que o Terraform recusa).
+#
+# O Key Vault (keyvault/main.tf) usa network_acls.default_action = "Allow"
+# (nao mais restrito por IP) - por isso nao existe mais aqui um data source
+# descobrindo o IP de saida do cluster: essa role assignment (RBAC) e o
+# unico portao de acesso de verdade pro addon CSI conseguir ler secrets.
 resource "azurerm_role_assignment" "aks_keyvault_secrets_user" {
   scope                            = module.keyvault.key_vault_id
   role_definition_name             = "Key Vault Secrets User"
   principal_id                     = module.aks.key_vault_secrets_provider_object_id
   skip_service_principal_aad_check = true
-}
-
-# Descobre o IP de saida real do cluster automaticamente (em vez de fixar
-# manualmente) - assim, se o cluster for destruido e recriado do zero, um
-# unico "terraform apply" ja recalcula o IP novo e atualiza o firewall do
-# Key Vault (keyvault/main.tf) sem nenhum passo manual.
-data "azurerm_public_ip" "aks_outbound" {
-  name                = module.aks.outbound_public_ip_name
-  resource_group_name = module.aks.node_resource_group
 }

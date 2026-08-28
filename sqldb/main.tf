@@ -28,6 +28,27 @@ resource "azurerm_mssql_database" "this" {
   tags = var.tags
 }
 
+# Segundo banco no MESMO servidor logico (nao um servidor novo - evita outro
+# risco de regiao/capacidade como o que ja aconteceu na criacao do server
+# principal, e reaproveita as mesmas credenciais de administrador). O tier
+# sempre-gratis (use_free_limit) so vale 1x por assinatura, ja usado pelo
+# banco "this" acima - este aqui e um serverless comum, com custo pequeno
+# baseado no uso real (auto-pause reduz isso ao minimo).
+resource "azurerm_mssql_database" "seguranca" {
+  name      = var.seguranca_database_name
+  server_id = azurerm_mssql_server.this.id
+
+  collation                   = "SQL_Latin1_General_CP1_CI_AS"
+  sku_name                    = var.seguranca_sku_name
+  max_size_gb                 = var.seguranca_max_size_gb
+  min_capacity                = var.seguranca_min_capacity
+  auto_pause_delay_in_minutes = var.seguranca_auto_pause_delay_in_minutes
+  storage_account_type        = "Local"
+  zone_redundant              = false
+
+  tags = var.tags
+}
+
 # Usei a faixa especial 0.0.0.0-0.0.0.0: e o valor que o Azure reconhece como
 # "permitir servicos Azure" (ex: pods do AKS), nao libera a internet toda.
 resource "azurerm_mssql_firewall_rule" "allow_azure_services" {

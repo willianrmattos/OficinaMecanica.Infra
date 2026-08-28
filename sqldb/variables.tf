@@ -55,6 +55,36 @@ variable "auto_pause_delay_in_minutes" {
   default     = 60
 }
 
+variable "seguranca_database_name" {
+  description = "Nome do banco de dados do servico OficinaMecanica.Seguranca (segundo banco, mesmo servidor)."
+  type        = string
+  default     = "SegurancaDb"
+}
+
+variable "seguranca_sku_name" {
+  description = "SKU do banco do Seguranca. Mesma familia serverless do banco principal, sem qualificar pro tier sempre-gratis (ja usado)."
+  type        = string
+  default     = "GP_S_Gen5_2"
+}
+
+variable "seguranca_max_size_gb" {
+  description = "Tamanho maximo do banco do Seguranca em GB - bem menor que o principal, o dominio (so Usuario) e minusculo."
+  type        = number
+  default     = 2
+}
+
+variable "seguranca_min_capacity" {
+  description = "Capacidade minima (vCores) do banco do Seguranca quando nao pausado."
+  type        = number
+  default     = 0.5
+}
+
+variable "seguranca_auto_pause_delay_in_minutes" {
+  description = "Minutos de inatividade antes do banco do Seguranca pausar automaticamente."
+  type        = number
+  default     = 60
+}
+
 variable "client_ip_address" {
   description = "IP publico autorizado a acessar o banco diretamente (execucao de migrations, conexao via SSMS/Azure Data Studio). Null nao libera nenhum IP especifico, apenas servicos Azure."
   type        = string

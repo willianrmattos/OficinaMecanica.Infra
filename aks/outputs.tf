@@ -51,21 +51,3 @@ output "key_vault_secrets_provider_object_id" {
   description = "Object ID da mesma managed identity acima - usado para conceder role assignments a ela (ex: Key Vault Secrets User). Fica separado do client_id porque quem usa esse valor e o aks_keyvault_access.tf na raiz, nao este modulo (evita a dependencia circular aks <-> keyvault)."
   value       = azurerm_kubernetes_cluster.this.key_vault_secrets_provider[0].secret_identity[0].object_id
 }
-
-output "node_resource_group" {
-  description = "Nome do resource group gerenciado automaticamente pelo AKS (MC_*), onde ficam os recursos internos do cluster (node VMSS, IP publico de saida, etc.) - necessario para localizar o IP de saida real via data source (aks_keyvault_access.tf)."
-  value       = azurerm_kubernetes_cluster.this.node_resource_group
-}
-
-# Calculei esse nome automaticamente a partir de effective_outbound_ips (um
-# resource ID, nao o IP em si) em vez de fixar manualmente - se o cluster for
-# destruido e recriado, o Azure atribui um IP de saida novo, com um nome de
-# recurso novo, e este output acompanha sozinho, sem precisar de nenhum
-# passo manual pra descobrir e atualizar o valor.
-output "outbound_public_ip_name" {
-  description = "Nome do recurso de IP publico usado para trafego de saida do cluster - usado para consultar o IP real via 'data azurerm_public_ip' (aks_keyvault_access.tf)."
-  value = element(
-    split("/", tolist(azurerm_kubernetes_cluster.this.network_profile[0].load_balancer_profile[0].effective_outbound_ips)[0]),
-    length(split("/", tolist(azurerm_kubernetes_cluster.this.network_profile[0].load_balancer_profile[0].effective_outbound_ips)[0])) - 1
-  )
-}

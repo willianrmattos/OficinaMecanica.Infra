@@ -34,12 +34,6 @@ variable "key_vault_name" {
   default     = "kvfiap"
 }
 
-variable "key_vault_client_ip_address" {
-  description = "IP publico autorizado a acessar o Key Vault, alem dos servicos Azure confiaveis. Null restringe o acesso apenas aos servicos Azure."
-  type        = string
-  default     = null
-}
-
 variable "monitoring_storage_class_name" {
   description = "Nome da StorageClass usada pelos PVCs do Prometheus/Grafana. O default e a StorageClass Premium ja provisionada pelo proprio AKS (disk.csi.azure.com, Premium_LRS, reclaimPolicy Delete), sem necessidade de uma StorageClass customizada."
   type        = string
@@ -82,17 +76,6 @@ variable "sql_client_ip_address" {
   default     = null
 }
 
-variable "jwt_secret_key" {
-  description = "Chave usada para assinar os tokens JWT da API, guardada no Key Vault (modulo keyvault) e sincronizada pro Kubernetes via CSI Secrets Store driver. Sem valor padrao: definir via TF_VAR_jwt_secret_key ou um .tfvars nao versionado."
-  type        = string
-  sensitive   = true
-}
-
-variable "admin_senha" {
-  description = "Senha do usuario admin da API (AdminCredentials:Senha), guardada no Key Vault (modulo keyvault) e sincronizada pro Kubernetes via CSI Secrets Store driver. Sem valor padrao: definir via TF_VAR_admin_senha ou um .tfvars nao versionado."
-  type        = string
-  sensitive   = true
-}
 
 variable "github_repo" {
   description = "Repositorio GitHub no formato 'owner/repo' (modulo github_oidc), usado para restringir a Federated Identity Credential do GitHub Actions a esse repositorio especifico."
@@ -115,6 +98,60 @@ variable "apim_publisher_name" {
 variable "apim_publisher_email" {
   description = "E-mail do publisher da APIM (usado pela Azure para notificacoes). Sem valor padrao: definir via TF_VAR_apim_publisher_email ou um .tfvars nao versionado."
   type        = string
+}
+
+variable "seguranca_database_name" {
+  description = "Nome do banco de dados do servico OficinaMecanica.Seguranca (modulo sqldb, segundo banco no mesmo servidor svsfiap)."
+  type        = string
+  default     = "SegurancaDb"
+}
+
+variable "seguranca_service_plan_name" {
+  description = "Nome do Service Plan (Consumption) da Function App do OficinaMecanica.Seguranca."
+  type        = string
+  default     = "planfuncsegurancafiap"
+}
+
+variable "seguranca_function_app_name" {
+  description = "Nome da Function App do OficinaMecanica.Seguranca. Globalmente unico (vira <nome>.azurewebsites.net)."
+  type        = string
+  default     = "funcsegurancafiap"
+}
+
+variable "seguranca_rsa_key_name" {
+  description = "Nome da chave RSA (RS256) no Key Vault usada pelo OficinaMecanica.Seguranca pra assinar/expor via JWKS."
+  type        = string
+  default     = "seguranca-rs256"
+}
+
+variable "seguranca_seed_admin_usuario" {
+  description = "Nome de usuario do admin inicial seedado pelo OficinaMecanica.Seguranca (nao sensivel - so a senha e)."
+  type        = string
+  default     = "admin"
+}
+
+variable "seguranca_seed_admin_senha" {
+  description = "Senha do admin inicial seedado pelo OficinaMecanica.Seguranca, guardada no Key Vault e resolvida via Key Vault Reference nos app_settings da Function App. Sem valor padrao: definir via TF_VAR_seguranca_seed_admin_senha ou um .tfvars nao versionado."
+  type        = string
+  sensitive   = true
+}
+
+variable "seguranca_jwt_issuer" {
+  description = "Claim 'iss' dos tokens JWT emitidos pelo OficinaMecanica.Seguranca."
+  type        = string
+  default     = "OficinaMecanica.Seguranca"
+}
+
+variable "seguranca_jwt_audience" {
+  description = "Claim 'aud' dos tokens JWT emitidos pelo OficinaMecanica.Seguranca."
+  type        = string
+  default     = "OficinaMecanica.Client"
+}
+
+variable "seguranca_github_repo" {
+  description = "Repositorio GitHub do OficinaMecanica.Seguranca no formato 'owner/repo' (modulo github_oidc_seguranca), usado para restringir a Federated Identity Credential a esse repositorio especifico."
+  type        = string
+  default     = "willianrmattos/OficinaMecanica.Seguranca"
 }
 
 variable "tags" {

@@ -36,6 +36,11 @@ variable "ingress_nginx_service_name" {
   default     = "ingress-nginx-controller"
 }
 
+variable "seguranca_backend_hostname" {
+  description = "Hostname publico da Function App do OficinaMecanica.Seguranca (modulo functionapp, ex: <nome>.azurewebsites.net) - backend do path segurancaserver. Diferente de oficinamecanica/grafana, nao passa pelo ingress-nginx: a Function tem seu proprio endpoint HTTPS direto, sem AKS no meio."
+  type        = string
+}
+
 variable "tags" {
   description = "Tags aplicadas aos recursos."
   type        = map(string)

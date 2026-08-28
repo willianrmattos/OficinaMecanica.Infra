@@ -32,7 +32,7 @@ variable "node_vm_size" {
 }
 
 variable "node_count" {
-  description = "Numero de nodes no node pool. Mantive em 1: o control plane do AKS e sempre gratis, mas o node_vm_size atual (Standard_D2s_v3) nao entra no free tier de VMs - cada node adicional gera custo."
+  description = "Numero de nodes no node pool. Mantive em 1: o control plane do AKS e sempre gratis, mas o node_vm_size atual (Standard_D4as_v4) nao entra no free tier de VMs - cada node adicional gera custo."
   type        = number
   default     = 1
 }

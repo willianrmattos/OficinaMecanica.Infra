@@ -12,3 +12,8 @@ output "database_name" {
   description = "Nome do banco de dados criado."
   value       = azurerm_mssql_database.this.name
 }
+
+output "seguranca_database_name" {
+  description = "Nome do banco de dados do servico OficinaMecanica.Seguranca."
+  value       = azurerm_mssql_database.seguranca.name
+}

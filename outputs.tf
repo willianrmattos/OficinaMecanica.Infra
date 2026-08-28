@@ -99,3 +99,23 @@ output "apim_gateway_url" {
   value       = module.apim.gateway_url
 }
 
+output "seguranca_function_app_name" {
+  description = "Nome da Function App do OficinaMecanica.Seguranca criada."
+  value       = module.functionapp.function_app_name
+}
+
+output "seguranca_function_app_hostname" {
+  description = "Hostname publico da Function App (util pra testar direto, sem passar pela APIM)."
+  value       = module.functionapp.default_hostname
+}
+
+output "seguranca_database_name" {
+  description = "Nome do banco de dados do OficinaMecanica.Seguranca criado."
+  value       = module.sqldb.seguranca_database_name
+}
+
+output "seguranca_github_actions_client_id" {
+  description = "Client ID da App Registration do GitHub Actions do OficinaMecanica.Seguranca - configurar como variavel AZURE_CLIENT_ID no repositorio (gh variable set)."
+  value       = module.github_oidc_seguranca.client_id
+}
+

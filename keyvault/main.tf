@@ -16,13 +16,22 @@ resource "azurerm_key_vault" "this" {
   soft_delete_retention_days = 7
   purge_protection_enabled   = false
 
+  # default_action = "Allow" (nao Deny + allowlist de IP) de proposito - mesmo
+  # raciocinio ja usado no API server do AKS (infra/aks, ver CLAUDE.md): o RBAC
+  # (rbac_authorization_enabled acima + as role assignments concedidas a cada
+  # identidade que precisa acessar) e o portao de acesso de verdade, nao IP.
+  # Tentei restringir por IP primeiro (client_ip_address + aks_outbound_ip_address
+  # + additional_ip_rules pros IPs de saida da Function App do
+  # OficinaMecanica.Seguranca), mas o Function App em tier Consumption tem
+  # egress imprevisivel - o proprio possible_outbound_ip_address_list que a
+  # Azure expoe NAO e exaustivo (confirmado na pratica: uma chamada real da
+  # Function foi bloqueada vindo de um IP que nao estava nessa lista), e o
+  # bypass="AzureServices" abaixo tambem NAO cobre esse cenario (testado,
+  # "caller is not a trusted service"). Sem alternativa pratica de allowlist
+  # de IP confiavel pra esse caso, sem subir uma VNet so pra isso.
   network_acls {
-    default_action = "Deny"
+    default_action = "Allow"
     bypass         = "AzureServices"
-    ip_rules = concat(
-      var.client_ip_address != null ? [var.client_ip_address] : [],
-      var.aks_outbound_ip_address != null ? [var.aks_outbound_ip_address] : []
-    )
   }
 
   tags = var.tags

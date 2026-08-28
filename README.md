@@ -2,8 +2,8 @@
 
 Infraestrutura como codigo (Terraform) para o ecossistema OficinaMecanica —
 provisiona todos os recursos Azure usados pelos repositorios de aplicacao
-(`OficinaMecanica`, e futuramente `OficinaMecanica.Seguranca` e outros),
-num unico lugar centralizado.
+(`OficinaMecanica`, `OficinaMecanica.Seguranca` e futuros), num unico lugar
+centralizado.
 
 Migrado do repositorio `OficinaMecanica` (onde vivia em `infra/`) — mesmo
 backend de state remoto, nenhum recurso foi recriado no Azure durante a
@@ -17,15 +17,18 @@ migracao.
 | `storage` | Storage Account | Backend remoto do state do Terraform |
 | `acr` | Azure Container Registry | Registro das imagens Docker da API |
 | `aks` | Azure Kubernetes Service | Orquestracao dos containers em producao |
-| `keyvault` | Azure Key Vault | Armazenamento centralizado de segredos (rede restrita por IP) |
+| `keyvault` | Azure Key Vault | Armazenamento centralizado de segredos, acesso via RBAC (role assignments), sem restricao de rede |
 | `helm` | Helm Releases (ingress-nginx, kube-prometheus-stack, Loki, Alloy) | Ingress Controller e observabilidade (metricas via Prometheus + Grafana, logs via Loki + Alloy) |
-| `sqldb` | Azure SQL Database | Banco de dados relacional gerenciado (tier serverless) |
-| `github_oidc` | Azure AD App Registration + Federated Identity Credential | Autenticacao do GitHub Actions no Azure via OIDC, sem secrets de longa duracao |
-| `apim` | Azure API Management (Consumption) | Gateway de API na frente do `ingress-nginx` (ver [API Gateway](#api-gateway) abaixo) |
+| `sqldb` | Azure SQL Database | Banco de dados relacional gerenciado (tier serverless), bancos `OficinaMecanicaDb` e `SegurancaDb` no mesmo servidor logico |
+| `github_oidc` | Azure AD App Registration + Federated Identity Credential | Autenticacao do GitHub Actions do repo `OficinaMecanica` no Azure via OIDC, sem secrets de longa duracao |
+| `functionapp` | Azure Function App (Consumption) | Hospeda o `OficinaMecanica.Seguranca` (autenticacao/autorizacao, emissao de JWT RS256) |
+| `github_oidc_seguranca` | Azure AD App Registration + Federated Identity Credential | Autenticacao do GitHub Actions do repo `OficinaMecanica.Seguranca` no Azure via OIDC |
+| `apim` | Azure API Management (Consumption) | Gateway de API na frente do `ingress-nginx` e da Function App (ver [API Gateway](#api-gateway) abaixo) |
 
-Dois arquivos na raiz (`keyvault_secrets.tf`, `aks_keyvault_access.tf`)
-conectam modulos entre si sem criar dependencia circular entre eles - cada
-um precisa enxergar dois modulos ao mesmo tempo, o que so e possivel na raiz.
+Tres arquivos na raiz (`keyvault_secrets.tf`, `aks_keyvault_access.tf`,
+`seguranca_keyvault.tf`) conectam modulos entre si sem criar dependencia
+circular entre eles - cada um precisa enxergar dois (ou mais) modulos ao
+mesmo tempo, o que so e possivel na raiz.
 
 ## Provisionando a infraestrutura
 
@@ -34,12 +37,12 @@ Pre-requisitos: [Terraform](https://developer.hashicorp.com/terraform/install) >
 ```bash
 cp terraform.tfvars.example terraform.tfvars   # preencher os valores (nomes de recursos, regiao, etc.)
 
-# Variaveis sensiveis nao tem default em terraform.tfvars.example de proposito
-# (nunca commitadas) - definir via variavel de ambiente antes do apply:
+# Variaveis sensiveis (ou sem default por outro motivo) nao tem default em
+# terraform.tfvars.example de proposito (nunca commitadas) - definir via
+# variavel de ambiente antes do apply:
 export TF_VAR_sql_administrator_login_password="<senha-forte>"
-export TF_VAR_jwt_secret_key="<chave-forte>"
-export TF_VAR_admin_senha="<senha-forte>"
 export TF_VAR_apim_publisher_email="<seu-email>"
+export TF_VAR_seguranca_seed_admin_senha="<senha-forte>"
 
 terraform init
 terraform plan    # revisar o que sera criado/alterado antes de aplicar
@@ -78,8 +81,9 @@ ignorado pelo Git).
 > banco foi criado com `az sql db create --use-free-limit true` e em
 > seguida importado para o state do Terraform (`terraform import`), para
 > que continue gerenciado como o restante da infraestrutura. Esse tier so
-> vale 1x por assinatura — bancos adicionais (ex: futuro `SegurancaDb`) tem
-> custo serverless pequeno, nao "sempre gratis".
+> vale 1x por assinatura — bancos adicionais (ex: `SegurancaDb`, ja criado
+> pra o `OficinaMecanica.Seguranca`) tem custo serverless pequeno, nao
+> "sempre gratis".
 
 > **O que vem no pacote `kube-prometheus-stack`** para observabilidade em Kubernetes:
 >
@@ -127,10 +131,10 @@ terraform output -raw apim_gateway_url   # https://<nome>.azure-api.net
 
 - `https://<nome>.azure-api.net/oficinaserver/...` → API do repo `OficinaMecanica` (Swagger UI incluso, em `/oficinaserver/index.html`)
 - `https://<nome>.azure-api.net/grafana/...` → Grafana
+- `https://<nome>.azure-api.net/segurancaserver/...` → Function App do `OficinaMecanica.Seguranca` (emissao/JWKS de JWT RS256), backend diferente dos dois acima: aponta direto pro hostname publico da Function (`<nome>.azurewebsites.net`), sem passar pelo `ingress-nginx`/AKS
 
-Cada backend novo entra com o mesmo padrao de path (`<nome>server`, ex.:
-`segurancaserver` para `OficinaMecanica.Seguranca`) — `oficinaserver` segue
-essa convencao desde ja.
+Cada backend novo entra com o mesmo padrao de path (`<nome>server`) — mesma
+convencao ja usada por `oficinaserver`/`segurancaserver`.
 
 Modelo **wildcard/passthrough**, nao import de OpenAPI: cada API e criada
 "em branco" na APIM, com uma operacao coringa (`url_template = "/*"`) por
@@ -167,11 +171,3 @@ Grafana usa `serve_from_sub_path: false` (nao `true`) em
 `helm/monitoring.yaml.tpl` de proposito: a policy da APIM ja tira o
 `/grafana` antes de encaminhar pro backend — com `true` o Grafana entrava
 num loop infinito de redirect.
-
-## Proximos passos conhecidos
-
-`OficinaMecanica.Seguranca` (Azure Function de autenticacao/autorizacao,
-extraida do monolito) vai adicionar infra nova aqui: modulo `functionapp/`,
-um `azurerm_mssql_database` novo no `sqldb` existente, reaproveitamento do
-`storage`/`keyvault` existentes, e um bloco `segurancaserver` em
-`apim/main.tf`. Ver `CLAUDE.md` deste repositorio.

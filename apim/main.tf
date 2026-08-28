@@ -225,3 +225,76 @@ resource "azurerm_api_management_product_api" "grafana" {
   api_management_name = azurerm_api_management.this.name
   resource_group_name = var.resource_group_name
 }
+
+# Backend do OficinaMecanica.Seguranca - diferente de ingress_nginx/grafana
+# acima, NAO passa pelo AKS: e uma Azure Function com endpoint HTTPS publico
+# proprio (<nome>.azurewebsites.net, certificado gerenciado pela propria
+# Azure), sem IP de LoadBalancer nenhum envolvido. "protocol" aqui e so
+# http/soap (protocolo do backend, nao o scheme da URL) - o https de
+# verdade vem do "url" abaixo, que ja aponta pro endpoint publico da Function.
+resource "azurerm_api_management_backend" "seguranca" {
+  name                = "seguranca"
+  resource_group_name = var.resource_group_name
+  api_management_name = azurerm_api_management.this.name
+  protocol            = "http"
+  url                 = "https://${var.seguranca_backend_hostname}"
+}
+
+# Mesmo modelo wildcard/passthrough da API principal e do Grafana - sem
+# X-Forwarded-*, a Seguranca nao monta nenhuma URL absoluta autorreferente
+# (sem Swagger UI, o JWKS/login nao precisam saber seu proprio path externo).
+resource "azurerm_api_management_api" "seguranca" {
+  name                = "seguranca-api"
+  resource_group_name = var.resource_group_name
+  api_management_name = azurerm_api_management.this.name
+  display_name        = "OficinaMecanica Seguranca"
+  revision            = "1"
+
+  path      = "segurancaserver"
+  protocols = ["https"]
+
+  subscription_required = false
+}
+
+resource "azurerm_api_management_api_operation" "seguranca_wildcard" {
+  for_each = toset(["GET", "POST", "PUT", "DELETE", "PATCH"])
+
+  operation_id        = "seguranca-passthrough-${lower(each.key)}"
+  api_name            = azurerm_api_management_api.seguranca.name
+  api_management_name = azurerm_api_management.this.name
+  resource_group_name = var.resource_group_name
+  display_name        = "Seguranca (passthrough ${each.key})"
+  method              = each.key
+  url_template        = "/*"
+}
+
+resource "azurerm_api_management_api_policy" "seguranca" {
+  api_name            = azurerm_api_management_api.seguranca.name
+  api_management_name = azurerm_api_management.this.name
+  resource_group_name = var.resource_group_name
+
+  xml_content = <<XML
+<policies>
+  <inbound>
+    <base />
+    <set-backend-service backend-id="${azurerm_api_management_backend.seguranca.name}" />
+  </inbound>
+  <backend>
+    <base />
+  </backend>
+  <outbound>
+    <base />
+  </outbound>
+  <on-error>
+    <base />
+  </on-error>
+</policies>
+XML
+}
+
+resource "azurerm_api_management_product_api" "seguranca" {
+  api_name            = azurerm_api_management_api.seguranca.name
+  product_id          = azurerm_api_management_product.this.product_id
+  api_management_name = azurerm_api_management.this.name
+  resource_group_name = var.resource_group_name
+}

@@ -39,12 +39,10 @@ module "aks" {
 module "keyvault" {
   source = "./keyvault"
 
-  location                = module.rg.location
-  resource_group_name     = module.rg.resource_group_name
-  key_vault_name          = var.key_vault_name
-  client_ip_address       = var.key_vault_client_ip_address
-  aks_outbound_ip_address = data.azurerm_public_ip.aks_outbound.ip_address
-  tags                    = var.tags
+  location            = module.rg.location
+  resource_group_name = module.rg.resource_group_name
+  key_vault_name      = var.key_vault_name
+  tags                = var.tags
 }
 
 module "helm" {
@@ -63,6 +61,7 @@ module "sqldb" {
   resource_group_name          = module.rg.resource_group_name
   server_name                  = var.sql_server_name
   database_name                = var.sql_database_name
+  seguranca_database_name      = var.seguranca_database_name
   administrator_login          = var.sql_administrator_login
   administrator_login_password = var.sql_administrator_login_password
   client_ip_address            = var.sql_client_ip_address
@@ -77,14 +76,52 @@ module "github_oidc" {
   aks_id      = module.aks.cluster_id
 }
 
+module "functionapp" {
+  source = "./functionapp"
+
+  location            = module.rg.location
+  resource_group_name = module.rg.resource_group_name
+  service_plan_name   = var.seguranca_service_plan_name
+  function_app_name   = var.seguranca_function_app_name
+
+  storage_account_name       = module.storage.storage_account_name
+  storage_account_access_key = module.storage.primary_access_key
+
+  # Todas as tres URIs abaixo sao construidas a partir de variaveis simples
+  # (nao module.keyvault.key_vault_uri / azurerm_key_vault_secret.*.id) de
+  # proposito - evita uma dependencia circular: o proprio Key Vault (modulo
+  # keyvault, acima) precisa dos IPs de saida desta Function App pro seu
+  # firewall, entao a Function App nao pode depender de nada que o Key
+  # Vault (ou os secrets dentro dele) produza. Os nomes dos secrets aqui
+  # tem que bater exatamente com os definidos em seguranca_keyvault.tf.
+  key_vault_uri                    = "https://${var.key_vault_name}.vault.azure.net/"
+  rsa_key_name                     = var.seguranca_rsa_key_name
+  sql_connection_string_secret_uri = "https://${var.key_vault_name}.vault.azure.net/secrets/seguranca-sql-connection-string/"
+  seed_admin_senha_secret_uri      = "https://${var.key_vault_name}.vault.azure.net/secrets/seguranca-seed-admin-senha/"
+  seed_admin_usuario               = var.seguranca_seed_admin_usuario
+
+  jwt_issuer   = var.seguranca_jwt_issuer
+  jwt_audience = var.seguranca_jwt_audience
+
+  tags = var.tags
+}
+
+module "github_oidc_seguranca" {
+  source = "./github_oidc_seguranca"
+
+  github_repo     = var.seguranca_github_repo
+  function_app_id = module.functionapp.function_app_id
+}
+
 module "apim" {
   source = "./apim"
 
-  location                = module.rg.location
-  resource_group_name     = module.rg.resource_group_name
-  apim_name               = var.apim_name
-  publisher_name          = var.apim_publisher_name
-  publisher_email         = var.apim_publisher_email
-  ingress_nginx_namespace = module.helm.release_namespace
-  tags                    = var.tags
+  location                   = module.rg.location
+  resource_group_name        = module.rg.resource_group_name
+  apim_name                  = var.apim_name
+  publisher_name             = var.apim_publisher_name
+  publisher_email            = var.apim_publisher_email
+  ingress_nginx_namespace    = module.helm.release_namespace
+  seguranca_backend_hostname = module.functionapp.default_hostname
+  tags                       = var.tags
 }
