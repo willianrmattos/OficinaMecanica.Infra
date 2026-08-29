@@ -89,11 +89,12 @@ module "functionapp" {
 
   # Todas as tres URIs abaixo sao construidas a partir de variaveis simples
   # (nao module.keyvault.key_vault_uri / azurerm_key_vault_secret.*.id) de
-  # proposito - evita uma dependencia circular: o proprio Key Vault (modulo
-  # keyvault, acima) precisa dos IPs de saida desta Function App pro seu
-  # firewall, entao a Function App nao pode depender de nada que o Key
-  # Vault (ou os secrets dentro dele) produza. Os nomes dos secrets aqui
-  # tem que bater exatamente com os definidos em seguranca_keyvault.tf.
+  # proposito - evita uma dependencia circular entre os modulos keyvault e
+  # functionapp (a Function App precisa da managed identity do Key Vault
+  # resolvida, mas o Key Vault em si nao depende de nada da Function App
+  # desde que o acesso virou RBAC puro, sem firewall por IP - ver keyvault/
+  # main.tf). Os nomes dos secrets aqui tem que bater exatamente com os
+  # definidos em seguranca_keyvault.tf.
   key_vault_uri                    = "https://${var.key_vault_name}.vault.azure.net/"
   rsa_key_name                     = var.seguranca_rsa_key_name
   sql_connection_string_secret_uri = "https://${var.key_vault_name}.vault.azure.net/secrets/seguranca-sql-connection-string/"
@@ -102,6 +103,8 @@ module "functionapp" {
 
   jwt_issuer   = var.seguranca_jwt_issuer
   jwt_audience = var.seguranca_jwt_audience
+
+  apim_name = var.apim_name
 
   tags = var.tags
 }

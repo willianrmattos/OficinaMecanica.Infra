@@ -240,9 +240,12 @@ resource "azurerm_api_management_backend" "seguranca" {
   url                 = "https://${var.seguranca_backend_hostname}"
 }
 
-# Mesmo modelo wildcard/passthrough da API principal e do Grafana - sem
-# X-Forwarded-*, a Seguranca nao monta nenhuma URL absoluta autorreferente
-# (sem Swagger UI, o JWKS/login nao precisam saber seu proprio path externo).
+# Mesmo modelo wildcard/passthrough da API principal e do Grafana. Precisa
+# de X-Forwarded-* (ver policy abaixo) desde que o Swagger UI foi adicionado -
+# o pacote OpenApi do Functions monta o servers[] do documento a partir desses
+# headers (DocumentFilter proprio, ver ServerBasePathDocumentFilter no repo
+# OficinaMecanica.Seguranca), senao o "Try it out" aponta pro hostname cru da
+# Function em vez do path publico via APIM.
 resource "azurerm_api_management_api" "seguranca" {
   name                = "seguranca-api"
   resource_group_name = var.resource_group_name
@@ -278,6 +281,26 @@ resource "azurerm_api_management_api_policy" "seguranca" {
   <inbound>
     <base />
     <set-backend-service backend-id="${azurerm_api_management_backend.seguranca.name}" />
+    <!-- A Function le esses headers (ServerBasePathDocumentFilter, repo
+         OficinaMecanica.Seguranca) pra montar o servers[] do OpenAPI e o
+         "Try it out" do Swagger UI com a URL publica da APIM, nao com o
+         hostname cru da Function (que o backend "seguranca" acessa direto,
+         sem passar pelo ingress-nginx). Nomes X-Gateway-* (nao X-Forwarded-*)
+         de proposito - confirmado na pratica que o App Service intercepta e
+         descarta qualquer header client-supplied comecando com
+         "X-Forwarded-" antes mesmo de chegar no worker isolado (sobra so
+         X-AppService-Proto/X-Original-* do hop interno host->worker, nada do
+         que a policy injeta aqui) - nomes fora dessa convencao reservada
+         sobrevivem intactos. -->
+    <set-header name="X-Gateway-Proto" exists-action="override">
+      <value>https</value>
+    </set-header>
+    <set-header name="X-Gateway-Host" exists-action="override">
+      <value>${var.apim_name}.azure-api.net</value>
+    </set-header>
+    <set-header name="X-Gateway-Prefix" exists-action="override">
+      <value>/segurancaserver</value>
+    </set-header>
   </inbound>
   <backend>
     <base />

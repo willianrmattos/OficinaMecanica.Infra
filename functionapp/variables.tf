@@ -71,6 +71,11 @@ variable "jwt_expiracao_minutos" {
   default     = 60
 }
 
+variable "apim_name" {
+  description = "Nome da instancia da APIM (sem .azure-api.net) - usado so pra liberar CORS na Function App pro host publico da APIM (o backend 'seguranca' da APIM acessa essa Function direto, sem ingress-nginx no meio; sem esse CORS, o Swagger UI servido via APIM falha ao buscar seu proprio swagger.json, que aponta pro hostname cru da Function)."
+  type        = string
+}
+
 variable "tags" {
   description = "Tags aplicadas aos recursos."
   type        = map(string)

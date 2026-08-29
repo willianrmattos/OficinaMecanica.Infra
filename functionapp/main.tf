@@ -34,6 +34,19 @@ resource "azurerm_linux_function_app" "this" {
       dotnet_version              = "8.0"
       use_dotnet_isolated_runtime = true
     }
+
+    # O Swagger UI (RenderSwaggerUI, pacote OpenApi) embute a URL absoluta do
+    # proprio hostname da Function no HTML (nao da pra sobrescrever isso via
+    # DocumentFilter - esse so afeta o conteudo do openapi.json/swagger.json
+    # em si, nao a pagina HTML) - quando acessado via APIM
+    # (apimfiap.azure-api.net/segurancaserver/swagger/ui), o navegador ve a
+    # pagina servida por um origin e tenta buscar o swagger.json de outro
+    # (funcsegurancafiap.azurewebsites.net), e o browser bloqueia por CORS
+    # sem esse header. Sem support_credentials porque o Swagger UI so faz
+    # GET anonimo no proprio spec, sem cookies/credenciais.
+    cors {
+      allowed_origins = ["https://${var.apim_name}.azure-api.net"]
+    }
   }
 
   app_settings = {
