@@ -154,6 +154,18 @@ variable "seguranca_github_repo" {
   default     = "willianrmattos/OficinaMecanica.Seguranca"
 }
 
+variable "seguranca_github_owner_id" {
+  description = "ID numerico imutavel da conta 'willianrmattos' no GitHub (obtido via `gh api users/willianrmattos` campo id) - ver comentario em github_oidc_seguranca/main.tf sobre o formato de subject OIDC com IDs imutaveis."
+  type        = string
+  default     = "33045692"
+}
+
+variable "seguranca_github_repo_id" {
+  description = "ID numerico imutavel do repositorio OficinaMecanica.Seguranca no GitHub (obtido via `gh api repos/willianrmattos/OficinaMecanica.Seguranca` campo id) - ver seguranca_github_owner_id."
+  type        = string
+  default     = "1348734211"
+}
+
 variable "tags" {
   description = "Tags aplicadas a todos os recursos."
   type        = map(string)

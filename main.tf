@@ -113,6 +113,8 @@ module "github_oidc_seguranca" {
   source = "./github_oidc_seguranca"
 
   github_repo     = var.seguranca_github_repo
+  github_owner_id = var.seguranca_github_owner_id
+  github_repo_id  = var.seguranca_github_repo_id
   function_app_id = module.functionapp.function_app_id
 }
 

@@ -20,7 +20,16 @@ resource "azuread_application_federated_identity_credential" "main_branch" {
   description    = "Permite ao workflow do GitHub Actions autenticar via OIDC, restrito a branch main de ${var.github_repo}."
   audiences      = ["api://AzureADTokenExchange"]
   issuer         = "https://token.actions.githubusercontent.com"
-  subject        = "repo:${var.github_repo}:ref:refs/heads/main"
+  # Subject com IDs imutaveis embutidos (owner@ownerId/repo@repoId), NAO o
+  # formato classico "repo:owner/repo:ref:..." usado no modulo github_oidc
+  # (OficinaMecanica) - essa conta/repo do GitHub ja nasceu com o novo default de
+  # subject com IDs imutaveis (confirmado via
+  # `gh api repos/<owner>/<repo>/actions/oidc/customization/sub`, campo
+  # sub_claim_prefix - nao da pra reverter pelo endpoint do proprio
+  # repositorio, `use_default: false` nao muda o prefixo retornado). Sem
+  # isso, o login OIDC falha com AADSTS700213 (subject nao bate com
+  # nenhuma credencial federada).
+  subject = "repo:${split("/", var.github_repo)[0]}@${var.github_owner_id}/${split("/", var.github_repo)[1]}@${var.github_repo_id}:ref:refs/heads/main"
 }
 
 # So Contributor na propria Function App (nao no resource group inteiro) -
