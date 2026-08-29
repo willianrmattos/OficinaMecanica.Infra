@@ -4,13 +4,14 @@ storage_account_name  = "stfiap"
 registry_name         = "acrfiap"
 aks_cluster_name      = "aksfiap"
 key_vault_name        = "kvfiap"
-sql_location          = "canadacentral"
 sql_server_name       = "svsfiap"
 sql_database_name     = "OficinaMecanicaDb"
 sql_administrator_login = "adminfiap"
 github_repo           = "willianrmattos/OficinaMecanica"
 
-# sql_client_ip_address = "203.0.113.5"   # opcional: libera acesso direto ao banco a partir deste IP
+# sql_server_name/sql_database_name/sql_administrator_login so descrevem
+# "fatos conhecidos" sobre o banco - provisionado pelo repositorio irmao
+# OficinaMecanica.Banco, nao por este repo (ver CLAUDE.md).
 
 # sql_administrator_login_password e seguranca_seed_admin_senha nao tem
 # default - definir via variavel de ambiente antes do apply:

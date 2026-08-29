@@ -40,40 +40,28 @@ variable "monitoring_storage_class_name" {
   default     = "managed-csi-premium"
 }
 
-variable "sql_location" {
-  description = "Regiao do SQL Server (modulo sqldb), independente da regiao do resource group (o SQL Database e publico, nao precisa estar na mesma regiao/VNet dos demais recursos)."
-  type        = string
-  default     = "canadacentral"
-}
-
 variable "sql_server_name" {
-  description = "Nome do SQL Server (modulo sqldb). Globalmente unico."
+  description = "Nome do SQL Server, provisionado pelo repositorio irmao OficinaMecanica.Banco - so um 'fato conhecido' aqui, usado pra montar o FQDN nas connection strings (keyvault_secrets.tf/seguranca_keyvault.tf). Globalmente unico."
   type        = string
   default     = "svsfiap"
 }
 
 variable "sql_database_name" {
-  description = "Nome do banco de dados."
+  description = "Nome do banco de dados do monolito, provisionado pelo OficinaMecanica.Banco."
   type        = string
   default     = "OficinaMecanicaDb"
 }
 
 variable "sql_administrator_login" {
-  description = "Usuario administrador do SQL Server."
+  description = "Usuario administrador do SQL Server, provisionado pelo OficinaMecanica.Banco."
   type        = string
   default     = "adminfiap"
 }
 
 variable "sql_administrator_login_password" {
-  description = "Senha do administrador do SQL Server. Sem valor padrao: definir via TF_VAR_sql_administrator_login_password ou um .tfvars nao versionado."
+  description = "Senha do administrador do SQL Server (mesmo valor configurado no OficinaMecanica.Banco). Sem valor padrao: definir via TF_VAR_sql_administrator_login_password ou um .tfvars nao versionado."
   type        = string
   sensitive   = true
-}
-
-variable "sql_client_ip_address" {
-  description = "IP publico autorizado a acessar o SQL Server diretamente (execucao de migrations, ferramentas de administracao). Null nao libera nenhum IP especifico."
-  type        = string
-  default     = null
 }
 
 
@@ -101,7 +89,7 @@ variable "apim_publisher_email" {
 }
 
 variable "seguranca_database_name" {
-  description = "Nome do banco de dados do servico OficinaMecanica.Seguranca (modulo sqldb, segundo banco no mesmo servidor svsfiap)."
+  description = "Nome do banco de dados do servico OficinaMecanica.Seguranca (segundo banco no mesmo servidor svsfiap, provisionado pelo OficinaMecanica.Banco)."
   type        = string
   default     = "SegurancaDb"
 }

@@ -19,11 +19,18 @@ migracao.
 | `aks` | Azure Kubernetes Service | Orquestracao dos containers em producao |
 | `keyvault` | Azure Key Vault | Armazenamento centralizado de segredos, acesso via RBAC (role assignments), sem restricao de rede |
 | `helm` | Helm Releases (ingress-nginx, kube-prometheus-stack, Loki, Alloy) | Ingress Controller e observabilidade (metricas via Prometheus + Grafana, logs via Loki + Alloy) |
-| `sqldb` | Azure SQL Database | Banco de dados relacional gerenciado (tier serverless), bancos `OficinaMecanicaDb` e `SegurancaDb` no mesmo servidor logico |
 | `github_oidc` | Azure AD App Registration + Federated Identity Credential | Autenticacao do GitHub Actions do repo `OficinaMecanica` no Azure via OIDC, sem secrets de longa duracao |
 | `functionapp` | Azure Function App (Consumption) | Hospeda o `OficinaMecanica.Seguranca` (autenticacao/autorizacao, emissao de JWT RS256) |
 | `github_oidc_seguranca` | Azure AD App Registration + Federated Identity Credential | Autenticacao do GitHub Actions do repo `OficinaMecanica.Seguranca` no Azure via OIDC |
 | `apim` | Azure API Management (Consumption) | Gateway de API na frente do `ingress-nginx` e da Function App (ver [API Gateway](#api-gateway) abaixo) |
+
+O SQL Server (`svsfiap`) e os bancos `OficinaMecanicaDb`/`SegurancaDb` foram
+extraidos pro repositorio irmao
+[OficinaMecanica.Banco](../OficinaMecanica.Banco) (state proprio, mesma
+storage account/container do tfstate deste repo) — este repositorio so
+guarda variaveis com os "fatos conhecidos" sobre o banco (nome do servidor,
+nomes dos bancos, credenciais) pra montar as connection strings salvas no
+Key Vault, sem depender do state do `OficinaMecanica.Banco`.
 
 Tres arquivos na raiz (`keyvault_secrets.tf`, `aks_keyvault_access.tf`,
 `seguranca_keyvault.tf`) conectam modulos entre si sem criar dependencia
@@ -69,7 +76,7 @@ repositorios de aplicacao (`.env` da API, variaveis do GitHub Actions):
 
 ```bash
 terraform output                          # lista todos os outputs
-terraform output -raw sql_server_fqdn     # ex: valor especifico, sem aspas
+terraform output -raw apim_gateway_url    # ex: valor especifico, sem aspas
 ```
 
 Variaveis sensiveis mantidas fora do controle de versao (`terraform.tfvars`,

@@ -54,20 +54,6 @@ module "helm" {
   depends_on = [module.aks]
 }
 
-module "sqldb" {
-  source = "./sqldb"
-
-  location                     = var.sql_location
-  resource_group_name          = module.rg.resource_group_name
-  server_name                  = var.sql_server_name
-  database_name                = var.sql_database_name
-  seguranca_database_name      = var.seguranca_database_name
-  administrator_login          = var.sql_administrator_login
-  administrator_login_password = var.sql_administrator_login_password
-  client_ip_address            = var.sql_client_ip_address
-  tags                         = var.tags
-}
-
 module "github_oidc" {
   source = "./github_oidc"
 

@@ -64,16 +64,6 @@ output "monitoring_namespace" {
   value       = module.helm.monitoring_namespace
 }
 
-output "sql_server_fqdn" {
-  description = "Endereco completo do SQL Server (usar na connection string)."
-  value       = module.sqldb.server_fqdn
-}
-
-output "sql_database_name" {
-  description = "Nome do banco de dados criado."
-  value       = module.sqldb.database_name
-}
-
 output "github_actions_client_id" {
   description = "Client ID da App Registration do GitHub Actions - configurar como variavel AZURE_CLIENT_ID no repositorio (gh variable set)."
   value       = module.github_oidc.client_id
@@ -107,11 +97,6 @@ output "seguranca_function_app_name" {
 output "seguranca_function_app_hostname" {
   description = "Hostname publico da Function App (util pra testar direto, sem passar pela APIM)."
   value       = module.functionapp.default_hostname
-}
-
-output "seguranca_database_name" {
-  description = "Nome do banco de dados do OficinaMecanica.Seguranca criado."
-  value       = module.sqldb.seguranca_database_name
 }
 
 output "seguranca_github_actions_client_id" {

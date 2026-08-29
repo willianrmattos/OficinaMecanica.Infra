@@ -30,7 +30,7 @@ variable "storage_account_access_key" {
 }
 
 variable "key_vault_uri" {
-  description = "URI do Key Vault (https://<nome>.vault.azure.net/) - construido a partir do nome (variavel simples, nao module.keyvault.key_vault_uri) de proposito, pra nao criar dependencia circular entre os modulos keyvault e functionapp (o keyvault precisa dos IPs de saida desta Function App pro proprio firewall)."
+  description = "URI do Key Vault (https://<nome>.vault.azure.net/) - construido a partir do nome (variavel simples, nao module.keyvault.key_vault_uri) de proposito, pra nao criar dependencia circular entre os modulos keyvault e functionapp (o Key Vault hoje e RBAC puro, sem firewall por IP - ver keyvault/main.tf - entao a variavel simples so evita o acoplamento entre modulos, nao contorna mais nenhuma dependencia de firewall)."
   type        = string
 }
 

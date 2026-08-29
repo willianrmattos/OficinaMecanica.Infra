@@ -9,7 +9,13 @@
 # quem sabe quais segredos esta aplicacao especifica precisa e a raiz.
 
 resource "azurerm_key_vault_secret" "sql_connection_string" {
-  name         = "sql-connection-string"
-  value        = "Server=tcp:${module.sqldb.server_fqdn},1433;Database=${module.sqldb.database_name};User Id=${var.sql_administrator_login};Password=${var.sql_administrator_login_password};Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;"
+  name = "sql-connection-string"
+  # FQDN montado a partir de var.sql_server_name (nao module.sqldb.server_fqdn) -
+  # o banco foi extraido pro repositorio irmao OficinaMecanica.Banco (state
+  # proprio), essas variaveis aqui so descrevem "fatos conhecidos" sobre um
+  # recurso que este repo nao gerencia mais - mesmo padrao ja usado pro Key
+  # Vault (key_vault_uri montado a partir de var.key_vault_name, ver
+  # functionapp/main.tf).
+  value        = "Server=tcp:${var.sql_server_name}.database.windows.net,1433;Database=${var.sql_database_name};User Id=${var.sql_administrator_login};Password=${var.sql_administrator_login_password};Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;"
   key_vault_id = module.keyvault.key_vault_id
 }

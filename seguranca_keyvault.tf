@@ -22,7 +22,9 @@ resource "azurerm_key_vault_key" "seguranca_rsa" {
 resource "azurerm_key_vault_secret" "seguranca_sql_connection_string" {
   name         = "seguranca-sql-connection-string"
   key_vault_id = module.keyvault.key_vault_id
-  value        = "Server=tcp:${module.sqldb.server_fqdn},1433;Database=${module.sqldb.seguranca_database_name};User Id=${var.sql_administrator_login};Password=${var.sql_administrator_login_password};Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;"
+  # FQDN montado a partir de var.sql_server_name - ver comentario em
+  # keyvault_secrets.tf (banco extraido pro repositorio OficinaMecanica.Banco).
+  value = "Server=tcp:${var.sql_server_name}.database.windows.net,1433;Database=${var.seguranca_database_name};User Id=${var.sql_administrator_login};Password=${var.sql_administrator_login_password};Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;"
 }
 
 resource "azurerm_key_vault_secret" "seguranca_seed_admin_senha" {
