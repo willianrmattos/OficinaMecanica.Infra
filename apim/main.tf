@@ -1,7 +1,7 @@
 # Le o IP publico do LoadBalancer do ingress-nginx (modulo helm)
 # dinamicamente, em vez de hardcodar - o mesmo IP usado hoje pelos hosts
-# nip.io dos demais Ingress (k8s/monitoring, k8s/mailpit, k8s/jaeger), que ja
-# muda se o Service for recriado.
+# nip.io de outros Ingress (k8s/mailpit), que ja muda se o Service for
+# recriado.
 data "kubernetes_service" "ingress_nginx" {
   metadata {
     name      = var.ingress_nginx_service_name
@@ -11,11 +11,6 @@ data "kubernetes_service" "ingress_nginx" {
 
 locals {
   ingress_ip = data.kubernetes_service.ingress_nginx.status[0].load_balancer[0].ingress[0].ip
-
-  # Mesmo host nip.io que k8s/monitoring/ingress.yaml ja usa pro Grafana -
-  # precisa do host especifico (nao so o IP puro) porque o ingress-nginx
-  # roteia Grafana/Prometheus por hostname, nao por path.
-  grafana_host = "grafana.${local.ingress_ip}.nip.io"
 }
 
 # Consumption_0 e o unico valor aceito pro tier serverless (sem capacidade
@@ -42,17 +37,9 @@ resource "azurerm_api_management_backend" "ingress_nginx" {
   url                 = "http://${local.ingress_ip}"
 }
 
-resource "azurerm_api_management_backend" "grafana" {
-  name                = "grafana"
-  resource_group_name = var.resource_group_name
-  api_management_name = azurerm_api_management.this.name
-  protocol            = "http"
-  url                 = "http://${local.grafana_host}"
-}
-
-# Sem import de OpenAPI de proposito: passthrough tipo proxy reverso (mesmo
-# modelo do Grafana abaixo), repassando QUALQUER path/metodo pro backend -
-# inclusive coisas que nao vem em nenhum OpenAPI, tipo a propria Swagger UI
+# Sem import de OpenAPI de proposito: passthrough tipo proxy reverso,
+# repassando QUALQUER path/metodo pro backend - inclusive coisas que nao vem
+# em nenhum OpenAPI, tipo a propria Swagger UI
 # (/swagger/*), /health e /metrics (mapeados fora do MVC, o Swashbuckle nem
 # documentaria). Troca a curadoria de operations (visiveis uma a uma no
 # portal da APIM) por cobertura total sem manutencao manual por endpoint.
@@ -73,10 +60,10 @@ resource "azurerm_api_management_api" "oficinamecanica" {
   subscription_required = false
 }
 
-# Mesmo motivo do Grafana: a APIM nao tem um metodo HTTP "curinga" de
-# verdade, precisa de uma operation coringa (url_template = "/*") por
-# metodo. GET/POST/PUT/DELETE/PATCH cobre os mesmos 5 metodos que a API ja
-# usa (confirmado nas rotas reais do Swagger).
+# A APIM nao tem um metodo HTTP "curinga" de verdade, precisa de uma
+# operation coringa (url_template = "/*") por metodo. GET/POST/PUT/DELETE/PATCH
+# cobre os mesmos 5 metodos que a API ja usa (confirmado nas rotas reais do
+# Swagger).
 resource "azurerm_api_management_api_operation" "oficinamecanica_wildcard" {
   for_each = toset(["GET", "POST", "PUT", "DELETE", "PATCH"])
 
@@ -130,79 +117,10 @@ resource "azurerm_api_management_api_policy" "oficinamecanica" {
 XML
 }
 
-# Grafana nao tem um OpenAPI pra importar (e uma UI web, nao uma API REST) -
-# criada "em branco" com operations coringa (/*) que repassam qualquer path
-# pro backend, igual um proxy reverso comum.
-resource "azurerm_api_management_api" "grafana" {
-  name                = "grafana"
-  resource_group_name = var.resource_group_name
-  api_management_name = azurerm_api_management.this.name
-  display_name        = "Grafana"
-  revision            = "1"
-
-  # Com prefixo "grafana" (diferente da API principal, que fica na raiz) -
-  # vira https://<apim>.azure-api.net/grafana/...
-  path      = "grafana"
-  protocols = ["https"]
-
-  subscription_required = false
-}
-
-# A APIM nao tem um metodo HTTP "curinga" de verdade (method = "*" e aceito
-# pelo provider Terraform sem erro, mas o runtime da Azure nunca casa com
-# nada - 404 silencioso pra qualquer request). O jeito certo de fazer um
-# passthrough tipo proxy reverso e uma operation coringa (url_template = "/*")
-# por metodo HTTP que a UI do Grafana realmente usa.
-resource "azurerm_api_management_api_operation" "grafana_wildcard" {
-  for_each = toset(["GET", "POST", "PUT", "DELETE", "PATCH"])
-
-  operation_id        = "grafana-passthrough-${lower(each.key)}"
-  api_name            = azurerm_api_management_api.grafana.name
-  api_management_name = azurerm_api_management.this.name
-  resource_group_name = var.resource_group_name
-  display_name        = "Grafana (passthrough ${each.key})"
-  method              = each.key
-  url_template        = "/*"
-}
-
-resource "azurerm_api_management_api_policy" "grafana" {
-  api_name            = azurerm_api_management_api.grafana.name
-  api_management_name = azurerm_api_management.this.name
-  resource_group_name = var.resource_group_name
-
-  xml_content = <<XML
-<policies>
-  <inbound>
-    <base />
-    <set-backend-service backend-id="${azurerm_api_management_backend.grafana.name}" />
-    <!-- Sem isso, o Grafana entra num loop de redirect em /login e / (raiz):
-         a cadeia APIM[https] -> ingress-nginx[http] -> Grafana[http] nao
-         carrega scheme nenhum, entao o Grafana nao sabe que a conexao
-         original do cliente foi https (config server.root_url, no chart)
-         e fica tentando "corrigir" o proprio scheme redirecionando pra
-         ele mesmo, infinitamente. -->
-    <set-header name="X-Forwarded-Proto" exists-action="override">
-      <value>https</value>
-    </set-header>
-  </inbound>
-  <backend>
-    <base />
-  </backend>
-  <outbound>
-    <base />
-  </outbound>
-  <on-error>
-    <base />
-  </on-error>
-</policies>
-XML
-}
-
 # Nome generico de proposito: esse Product agrupa TUDO que passa pela APIM
-# (a API + Grafana, e o que mais entrar depois) - so existe porque toda API
-# precisa pertencer a um Product pra ficar acessivel pelo gateway, nao
-# porque exista controle de acesso de verdade aqui (subscription_required
-# = false nos dois).
+# (a API, e o que mais entrar depois) - so existe porque toda API precisa
+# pertencer a um Product pra ficar acessivel pelo gateway, nao porque exista
+# controle de acesso de verdade aqui (subscription_required = false).
 resource "azurerm_api_management_product" "this" {
   product_id            = "gateway"
   api_management_name   = azurerm_api_management.this.name
@@ -219,15 +137,8 @@ resource "azurerm_api_management_product_api" "oficinamecanica" {
   resource_group_name = var.resource_group_name
 }
 
-resource "azurerm_api_management_product_api" "grafana" {
-  api_name            = azurerm_api_management_api.grafana.name
-  product_id          = azurerm_api_management_product.this.product_id
-  api_management_name = azurerm_api_management.this.name
-  resource_group_name = var.resource_group_name
-}
-
-# Backend do OficinaMecanica.Seguranca - diferente de ingress_nginx/grafana
-# acima, NAO passa pelo AKS: e uma Azure Function com endpoint HTTPS publico
+# Backend do OficinaMecanica.Seguranca - diferente de ingress_nginx acima,
+# NAO passa pelo AKS: e uma Azure Function com endpoint HTTPS publico
 # proprio (<nome>.azurewebsites.net, certificado gerenciado pela propria
 # Azure), sem IP de LoadBalancer nenhum envolvido. "protocol" aqui e so
 # http/soap (protocolo do backend, nao o scheme da URL) - o https de
@@ -240,8 +151,8 @@ resource "azurerm_api_management_backend" "seguranca" {
   url                 = "https://${var.seguranca_backend_hostname}"
 }
 
-# Mesmo modelo wildcard/passthrough da API principal e do Grafana. Precisa
-# de X-Forwarded-* (ver policy abaixo) desde que o Swagger UI foi adicionado -
+# Mesmo modelo wildcard/passthrough da API principal. Precisa de
+# X-Forwarded-* (ver policy abaixo) desde que o Swagger UI foi adicionado -
 # o pacote OpenApi do Functions monta o servers[] do documento a partir desses
 # headers (DocumentFilter proprio, ver ServerBasePathDocumentFilter no repo
 # OficinaMecanica.Seguranca), senao o "Try it out" aponta pro hostname cru da

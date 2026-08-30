@@ -19,3 +19,15 @@ resource "azurerm_key_vault_secret" "sql_connection_string" {
   value        = "Server=tcp:${var.sql_server_name}.database.windows.net,1433;Database=${var.sql_database_name};User Id=${var.sql_administrator_login};Password=${var.sql_administrator_login_password};Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;"
   key_vault_id = module.keyvault.key_vault_id
 }
+
+# Guardo aqui so como fonte da verdade auditavel (mesmo padrao dos demais
+# segredos deste arquivo) - quem realmente consome o valor e o
+# kubernetes_secret criado direto em helm/otel-collector.tf, a partir da
+# mesma var.newrelic_license_key (nao ha sincronizacao KeyVault->K8s via CSI
+# aqui: nem o Collector nem o nri-bundle rodam no namespace da API, e o
+# Terraform ja tem o valor em maos pra criar o Secret nativo diretamente).
+resource "azurerm_key_vault_secret" "newrelic_license_key" {
+  name         = "newrelic-license-key"
+  value        = var.newrelic_license_key
+  key_vault_id = module.keyvault.key_vault_id
+}

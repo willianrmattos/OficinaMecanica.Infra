@@ -60,7 +60,7 @@ output "ingress_nginx_namespace" {
 }
 
 output "monitoring_namespace" {
-  description = "Namespace onde o Prometheus/Grafana foram instalados via Helm."
+  description = "Namespace onde o OpenTelemetry Collector e o nri-bundle foram instalados via Helm."
   value       = module.helm.monitoring_namespace
 }
 

@@ -48,8 +48,7 @@ module "keyvault" {
 module "helm" {
   source = "./helm"
 
-  storage_class_name = var.monitoring_storage_class_name
-  apim_name          = var.apim_name
+  newrelic_license_key = var.newrelic_license_key
 
   depends_on = [module.aks]
 }

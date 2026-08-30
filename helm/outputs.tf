@@ -14,6 +14,6 @@ output "release_status" {
 }
 
 output "monitoring_namespace" {
-  description = "Namespace onde o Prometheus/Grafana foram instalados."
-  value       = helm_release.monitoring.namespace
+  description = "Namespace onde o OpenTelemetry Collector e o nri-bundle foram instalados."
+  value       = helm_release.otel_collector.namespace
 }

@@ -34,10 +34,10 @@ variable "key_vault_name" {
   default     = "kvfiap"
 }
 
-variable "monitoring_storage_class_name" {
-  description = "Nome da StorageClass usada pelos PVCs do Prometheus/Grafana. O default e a StorageClass Premium ja provisionada pelo proprio AKS (disk.csi.azure.com, Premium_LRS, reclaimPolicy Delete), sem necessidade de uma StorageClass customizada."
+variable "newrelic_license_key" {
+  description = "License Key da conta New Relic (ingest license key, nao a User API Key). Usada pelo OpenTelemetry Collector (helm/otel-collector.tf) pra autenticar a exportacao OTLP e pelo nri-bundle (helm/newrelic.tf) pra integracao de Kubernetes. Sem valor padrao: definir via TF_VAR_newrelic_license_key ou um .tfvars nao versionado."
   type        = string
-  default     = "managed-csi-premium"
+  sensitive   = true
 }
 
 variable "sql_server_name" {

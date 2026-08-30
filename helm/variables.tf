@@ -16,55 +16,44 @@ variable "chart_version" {
   default     = "4.15.1"
 }
 
-variable "monitoring_release_name" {
-  description = "Nome do Helm release do kube-prometheus-stack (Prometheus + Grafana)."
-  type        = string
-  default     = "monitoring"
-}
-
 variable "monitoring_namespace" {
-  description = "Namespace onde o Prometheus/Grafana serao instalados."
+  description = "Namespace onde o OpenTelemetry Collector e o nri-bundle (integracao Kubernetes da New Relic) sao instalados. Antes tambem era o namespace do Prometheus/Grafana/Loki/Alloy (removidos - ver historico do repositorio)."
   type        = string
   default     = "monitoring"
 }
 
-variable "monitoring_chart_version" {
-  description = "Versao do chart kube-prometheus-stack. Fixei na versao instalada (confirmada via `helm list -n monitoring`) para evitar drift silencioso, pelo mesmo motivo do chart_version do ingress-nginx."
+variable "otel_collector_release_name" {
+  description = "Nome do Helm release do OpenTelemetry Collector."
   type        = string
-  default     = "87.15.1"
+  default     = "otel-collector"
 }
 
-variable "storage_class_name" {
-  description = "Nome da StorageClass usada pelos PVCs do Prometheus/Grafana/Loki. Default (na raiz) e a StorageClass Premium que o proprio AKS ja cria (disk.csi.azure.com, Premium_LRS, reclaimPolicy Delete)."
+variable "otel_collector_chart_version" {
+  description = "Versao do chart opentelemetry-collector (repositorio open-telemetry/opentelemetry-helm-charts). Fixada de proposito, mesmo motivo do chart_version do ingress-nginx - reconferir a versao estavel atual antes do primeiro apply."
   type        = string
-  default     = "managed-csi-premium"
+  default     = "0.172.0"
 }
 
-variable "loki_release_name" {
-  description = "Nome do Helm release do Loki."
+variable "newrelic_release_name" {
+  description = "Nome do Helm release do nri-bundle (integracao de Kubernetes da New Relic - CPU/memoria de pods/nodes)."
   type        = string
-  default     = "loki"
+  default     = "newrelic"
 }
 
-variable "loki_chart_version" {
-  description = "Versao do chart loki."
+variable "newrelic_chart_version" {
+  description = "Versao do chart nri-bundle (repositorio helm-charts.newrelic.com). Fixada de proposito, mesmo motivo do chart_version do ingress-nginx."
   type        = string
-  default     = "18.4.4"
+  default     = "8.0.20"
 }
 
-variable "alloy_release_name" {
-  description = "Nome do Helm release do Grafana Alloy (coleta os logs dos pods e envia pro Loki."
+variable "newrelic_license_key" {
+  description = "License Key da New Relic - repassada do var.newrelic_license_key da raiz, guardada num kubernetes_secret proprio (helm/otel-collector.tf) pro Collector e o nri-bundle referenciarem sem texto plano no values do Helm."
   type        = string
-  default     = "alloy"
+  sensitive   = true
 }
 
-variable "alloy_chart_version" {
-  description = "Versao do chart alloy, repositorio oficial da Grafana. Fixei na versao confirmada instalada, mesmo motivo dos demais chart_version deste modulo."
+variable "newrelic_otlp_endpoint" {
+  description = "Endpoint OTLP da New Relic pro qual o Collector reexporta. Default e a regiao US (otlp.nr-data.net) - trocar para https://otlp.eu01.nr-data.net se a conta for da regiao EU."
   type        = string
-  default     = "1.10.1"
-}
-
-variable "apim_name" {
-  description = "Nome da instancia do API Management (modulo apim) - usado so pra montar a URL publica (<nome>.azure-api.net) que o Grafana precisa saber que esta servindo atras dela (grafana.ini server.root_url/serve_from_sub_path em monitoring.yaml.tpl). Variavel simples (nao module.apim.xxx) de proposito, pra nao criar dependencia circular entre os modulos helm e apim."
-  type        = string
+  default     = "https://otlp.nr-data.net"
 }

@@ -18,7 +18,7 @@ migracao.
 | `acr` | Azure Container Registry | Registro das imagens Docker da API |
 | `aks` | Azure Kubernetes Service | Orquestracao dos containers em producao |
 | `keyvault` | Azure Key Vault | Armazenamento centralizado de segredos, acesso via RBAC (role assignments), sem restricao de rede |
-| `helm` | Helm Releases (ingress-nginx, kube-prometheus-stack, Loki, Alloy) | Ingress Controller e observabilidade (metricas via Prometheus + Grafana, logs via Loki + Alloy) |
+| `helm` | Helm Releases (ingress-nginx, OpenTelemetry Collector, nri-bundle) | Ingress Controller e observabilidade (traces/metricas/logs via OpenTelemetry Collector, CPU/memoria via New Relic Infrastructure) |
 | `github_oidc` | Azure AD App Registration + Federated Identity Credential | Autenticacao do GitHub Actions do repo `OficinaMecanica` no Azure via OIDC, sem secrets de longa duracao |
 | `functionapp` | Azure Function App (Consumption) | Hospeda o `OficinaMecanica.Seguranca` (autenticacao/autorizacao, emissao de JWT RS256) |
 | `github_oidc_seguranca` | Azure AD App Registration + Federated Identity Credential | Autenticacao do GitHub Actions do repo `OficinaMecanica.Seguranca` no Azure via OIDC |
@@ -92,53 +92,43 @@ ignorado pelo Git).
 > pra o `OficinaMecanica.Seguranca`) tem custo serverless pequeno, nao
 > "sempre gratis".
 
-> **O que vem no pacote `kube-prometheus-stack`** para observabilidade em Kubernetes:
+> **Observabilidade: New Relic, via OpenTelemetry** — este projeto ja teve
+> um stack self-hosted completo aqui (`kube-prometheus-stack` + Loki/Alloy +
+> Jaeger), removido em favor do New Relic (SaaS, escolha livre de
+> ferramenta pro projeto). Dois componentes rodam no cluster (`helm/`):
 >
-> | Componente | Finalidade |
-> |------------|------------|
-> | Prometheus | Coleta e armazena as metricas (banco de dados de series temporais) |
-> | Prometheus Operator | Controller que gerencia o Prometheus via CRDs (`ServiceMonitor`, `PodMonitor`, `PrometheusRule`, etc.) |
-> | Grafana | Dashboards e visualizacao das metricas |
-> | kube-state-metrics | Metricas sobre o estado dos objetos do Kubernetes (Deployments, Pods, HPAs, etc.) |
-> | node-exporter | Metricas de sistema operacional/hardware de cada node |
-> | Alertmanager | Roteamento de alertas (Slack, e-mail, etc.) — **desabilitado** neste projeto, sem canal de alerta configurado ainda |
+> | Componente | Chart | Finalidade |
+> |------------|-------|------------|
+> | OpenTelemetry Collector | `open-telemetry/opentelemetry-collector` (`otel-collector.tf`) | Recebe traces/metricas/logs via OTLP da API (repositorio `OficinaMecanica`) e reexporta pra New Relic — gateway "burro" de proposito: trocar de backend de observabilidade no futuro so exige mudar a config do exporter aqui, sem tocar em codigo de aplicacao nem reinstalar agente nenhum |
+> | nri-bundle | `helm-charts.newrelic.com` (`newrelic.tf`) | Integracao de Kubernetes da New Relic — CPU/memoria de pods/nodes, com seu proprio `kube-state-metrics` (sem concorrente no cluster desde que o antigo foi removido) |
 >
-> Cada componente ja vem com seu proprio `Deployment`/`StatefulSet`, `Service`
-> e permissoes de RBAC do Kubernetes — nada disso precisou ser escrito na
-> mao, so configurado via `helm/monitoring.yaml.tpl`.
-
-> **Logs agregados via Loki + Grafana Alloy** (`helm/loki.tf`):
->
-> | Componente | Finalidade |
-> |------------|------------|
-> | Loki | Armazena e indexa os logs (modo `Monolithic` — um unico binario, sem os componentes read/write/backend separados do modo distribuido, que so fariam sentido em escala maior) |
-> | Grafana Alloy | Le o log de cada container do node (DaemonSet, 1 pod ja que o cluster tem 1 node so) e envia pro Loki |
->
-> O Loki roda com storage em filesystem (PVC de 10Gi na mesma StorageClass
-> do Prometheus/Grafana, sem object storage tipo Azure Blob Storage) e
-> retencao de 72h — mais longa que as 6h do Prometheus. Caches de
-> chunks/resultados do Loki (baseados em Memcached) e o canary de teste E2E
-> ficam desabilitados de proposito: o cluster tem 1 node so
-> (`Standard_D4as_v4`, 4 vCPU/16GiB), e cada um desses componentes
-> adicionaria outro Pod competindo pelo mesmo recurso escasso, sem
-> necessidade real no volume de log baixo deste projeto.
+> A license key da New Relic (`azurerm_key_vault_secret.newrelic_license_key`,
+> raiz) e sincronizada num `kubernetes_secret` proprio (nao via CSI Secrets
+> Store — o Terraform ja tem o valor em maos, sem necessidade de ida-e-volta
+> pelo Key Vault so pra esses dois consumidores dentro do proprio cluster),
+> referenciado pelo Collector (env var `NEW_RELIC_LICENSE_KEY`) e pelo
+> nri-bundle (`global.customSecretName`/`customSecretLicenseKey`). Dashboards
+> e alertas sao montados via ferramentas do MCP `newrelic` (`.mcp.json` na
+> raiz do workspace, `E:\FIAP\Pos`) ou `newrelic nerdgraph query` (CLI) — nao
+> Terraform, nao UI manual.
 
 ## API Gateway
 
 O [Azure API Management](https://azure.microsoft.com/products/api-management)
 (`apim`, tier **Consumption** — sempre gratis ate 1M chamadas/mes) fica
 **na frente** do `ingress-nginx`, nao o substitui: o `ingress-nginx` continua
-servindo Grafana/Prometheus/Jaeger/Mailpit diretamente e vira so o *backend*
-que a APIM chama pra rotear. Do ponto de vista de quem consome a API (ou o
-Grafana), o gateway da APIM passa a ser o novo endereco publico:
+servindo Mailpit diretamente e vira so o *backend* que a APIM chama pra
+rotear. Do ponto de vista de quem consome a API, o gateway da APIM passa a
+ser o novo endereco publico:
 
 ```bash
 terraform output -raw apim_gateway_url   # https://<nome>.azure-api.net
 ```
 
 - `https://<nome>.azure-api.net/oficinaserver/...` → API do repo `OficinaMecanica` (Swagger UI incluso, em `/oficinaserver/index.html`)
-- `https://<nome>.azure-api.net/grafana/...` → Grafana
-- `https://<nome>.azure-api.net/segurancaserver/...` → Function App do `OficinaMecanica.Seguranca` (emissao/JWKS de JWT RS256), backend diferente dos dois acima: aponta direto pro hostname publico da Function (`<nome>.azurewebsites.net`), sem passar pelo `ingress-nginx`/AKS
+- `https://<nome>.azure-api.net/segurancaserver/...` → Function App do `OficinaMecanica.Seguranca` (emissao/JWKS de JWT RS256), backend diferente do acima: aponta direto pro hostname publico da Function (`<nome>.azurewebsites.net`), sem passar pelo `ingress-nginx`/AKS
+
+(O New Relic, usado pra observabilidade, e um SaaS externo — acessado direto, sem passar pela APIM.)
 
 Cada backend novo entra com o mesmo padrao de path (`<nome>server`) — mesma
 convencao ja usada por `oficinaserver`/`segurancaserver`.
@@ -161,10 +151,10 @@ o que o LoadBalancer publico do `ingress-nginx` ja fornece.
 
 ### Headers `X-Forwarded-*`
 
-Pra Swagger UI, "Try it out" e os links do Grafana funcionarem corretamente
-atras do prefixo da APIM, a policy de cada API injeta
-`X-Forwarded-Proto`/`-Host`/`-Prefix` antes de encaminhar. Dois pontos sao
-necessarios pra esses headers chegarem intactos ate o pod:
+Pra Swagger UI e "Try it out" funcionarem corretamente atras do prefixo da
+APIM, a policy da API injeta `X-Forwarded-Proto`/`-Host`/`-Prefix` antes de
+encaminhar. Dois pontos sao necessarios pra esses headers chegarem intactos
+ate o pod:
 
 1. **`ingress-nginx` com `controller.config.use-forwarded-headers: true`**
    (`helm/main.tf`) — o default do chart e `false`, que faz o nginx
@@ -173,8 +163,3 @@ necessarios pra esses headers chegarem intactos ate o pod:
 2. **`Program.cs`** (repositorio `OficinaMecanica`) registra
    `app.UseForwardedHeaders(...)` + um middleware proprio lendo
    `X-Forwarded-Prefix` na mao pra setar `HttpRequest.PathBase`.
-
-Grafana usa `serve_from_sub_path: false` (nao `true`) em
-`helm/monitoring.yaml.tpl` de proposito: a policy da APIM ja tira o
-`/grafana` antes de encaminhar pro backend — com `true` o Grafana entrava
-num loop infinito de redirect.

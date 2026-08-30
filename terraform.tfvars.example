@@ -8,10 +8,15 @@ sql_server_name       = "svsfiap"
 sql_database_name     = "OficinaMecanicaDb"
 sql_administrator_login = "adminfiap"
 github_repo           = "willianrmattos/OficinaMecanica"
+newrelic_license_key  = "<license-key-da-conta-new-relic>"
 
 # sql_server_name/sql_database_name/sql_administrator_login so descrevem
 # "fatos conhecidos" sobre o banco - provisionado pelo repositorio irmao
 # OficinaMecanica.Banco, nao por este repo (ver CLAUDE.md).
+
+# newrelic_license_key e a License Key (ingest), Account Settings > API Keys
+# na New Relic - NAO e a User API Key (prefixo "NRAK-", usada so pelo MCP/
+# NerdGraph/CLI).
 
 # sql_administrator_login_password e seguranca_seed_admin_senha nao tem
 # default - definir via variavel de ambiente antes do apply:

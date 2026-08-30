@@ -75,9 +75,9 @@ resource "azurerm_linux_function_app" "this" {
 
   tags = var.tags
 
-  # WEBSITE_RUN_FROM_PACKAGE/WEBSITE_MOUNT_ENABLED sao adicionados pelo
-  # proprio mecanismo de deploy (func azure functionapp publish, ou a Azure/
-  # functions-action no CI/CD futuro) por fora do Terraform - sem isso, todo
+  # WEBSITE_RUN_FROM_PACKAGE/WEBSITE_MOUNT_ENABLED/WEBSITE_ENABLE_SYNC_UPDATE_SITE sao
+  # adicionados pelo proprio mecanismo de deploy (func azure functionapp publish, ou o
+  # Azure/functions-action do CI/CD) por fora do Terraform - sem isso, todo
   # "terraform apply" ficaria querendo apagar a referencia pro pacote de
   # codigo que acabou de ser publicado, derrubando a Function ate o proximo
   # deploy. O Terraform continua dono de todo o resto de app_settings acima.
@@ -85,6 +85,7 @@ resource "azurerm_linux_function_app" "this" {
     ignore_changes = [
       app_settings["WEBSITE_RUN_FROM_PACKAGE"],
       app_settings["WEBSITE_MOUNT_ENABLED"],
+      app_settings["WEBSITE_ENABLE_SYNC_UPDATE_SITE"],
     ]
   }
 }
