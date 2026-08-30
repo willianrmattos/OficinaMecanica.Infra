@@ -58,9 +58,10 @@ module "helm" {
 module "github_oidc" {
   source = "./github_oidc"
 
-  github_repo = var.github_repo
-  acr_id      = module.acr.registry_id
-  aks_id      = module.aks.cluster_id
+  github_repo  = var.github_repo
+  acr_id       = module.acr.registry_id
+  aks_id       = module.aks.cluster_id
+  key_vault_id = module.keyvault.key_vault_id
 }
 
 module "github_oidc_infra" {
