@@ -21,6 +21,15 @@ resource "azuread_application_federated_identity_credential" "main_branch" {
   subject        = "repo:${var.github_repo}:ref:refs/heads/main"
 }
 
+resource "azuread_application_federated_identity_credential" "release_branch" {
+  application_id = azuread_application.github_actions.id
+  display_name   = "github-actions-release-branch"
+  description    = "Permite ao workflow do GitHub Actions autenticar via OIDC, restrito a branch release de ${var.github_repo}."
+  audiences      = ["api://AzureADTokenExchange"]
+  issuer         = "https://token.actions.githubusercontent.com"
+  subject        = "repo:${var.github_repo}:ref:refs/heads/release"
+}
+
 # Permissao pro estagio de build+push: so envia imagens ao ACR.
 resource "azurerm_role_assignment" "acr_push" {
   scope                            = var.acr_id
@@ -37,6 +46,21 @@ resource "azurerm_role_assignment" "acr_push" {
 resource "azurerm_role_assignment" "aks_cluster_admin" {
   scope                            = var.aks_id
   role_definition_name             = "Azure Kubernetes Service Cluster Admin Role"
+  principal_id                     = azuread_service_principal.github_actions.object_id
+  skip_service_principal_aad_check = true
+}
+
+# Permissao pro step "Aplicar migrations" (ci.yml): le a connection string
+# via "az keyvault secret show" antes do dotnet ef database update. Key
+# Vault Secrets User (RBAC de dados, so leitura) - Contributor no recurso
+# em si NAO seria suficiente e nem faz sentido aqui (essa identidade nem
+# tem Contributor no resource group, so nos recursos especificos que
+# gerencia). Sem essa role, o step falha com 403 ForbiddenByRbac -
+# encontrado ao rodar o primeiro deploy de verdade disparado por push em
+# release.
+resource "azurerm_role_assignment" "keyvault_secrets_user" {
+  scope                            = var.key_vault_id
+  role_definition_name             = "Key Vault Secrets User"
   principal_id                     = azuread_service_principal.github_actions.object_id
   skip_service_principal_aad_check = true
 }

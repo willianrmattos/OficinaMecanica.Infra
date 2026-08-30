@@ -1,3 +1,9 @@
+variable "admin_object_id" {
+  description = "Object ID (Azure AD) do usuario humano dono desta assinatura (obtido via `az ad signed-in-user show`) - usado como principal_id fixo nas role assignments de acesso administrativo (Key Vault Administrator, Storage Blob Data Contributor do tfstate) que antes usavam data.azurerm_client_config.current.object_id. Precisou virar uma variavel explicita porque a CI (identidades github_oidc_infra/github_oidc_banco) tambem roda terraform plan/apply nesse mesmo state - com o data source dinamico, cada lado (humano local vs. CI) ficava substituindo o principal_id do outro a cada execucao."
+  type        = string
+  default     = "9597844b-eab3-418d-a8dd-f938e9dfaba8"
+}
+
 variable "location" {
   description = "Regiao do Azure onde todos os recursos serao criados. A assinatura Azure for Students so permite: chilecentral, canadacentral, northcentralus, eastus, mexicocentral."
   type        = string
@@ -69,6 +75,42 @@ variable "github_repo" {
   description = "Repositorio GitHub no formato 'owner/repo' (modulo github_oidc), usado para restringir a Federated Identity Credential do GitHub Actions a esse repositorio especifico."
   type        = string
   default     = "willianrmattos/OficinaMecanica"
+}
+
+variable "github_repo_infra" {
+  description = "Repositorio GitHub deste proprio repo (OficinaMecanica.Infra) no formato 'owner/repo' - usado pelo modulo github_oidc_infra pra restringir as Federated Identity Credentials (PR e push em main/release) a esse repositorio."
+  type        = string
+  default     = "willianrmattos/OficinaMecanica.Infra"
+}
+
+variable "banco_github_repo" {
+  description = "Repositorio GitHub do OficinaMecanica.Banco no formato 'owner/repo' - usado pelo modulo github_oidc_banco pra restringir as Federated Identity Credentials (PR e push em main/release) a esse repositorio."
+  type        = string
+  default     = "willianrmattos/OficinaMecanica.Banco"
+}
+
+variable "infra_github_owner_id" {
+  description = "ID numerico imutavel da conta 'willianrmattos' no GitHub (obtido via `gh api users/willianrmattos` campo id) - ver comentario em github_oidc_infra/main.tf sobre o formato de subject OIDC com IDs imutaveis (esse repo, assim como Banco e Seguranca, ja nasceu com esse default - confirmado empiricamente pelo erro AADSTS700213 apresentando o subject nesse formato)."
+  type        = string
+  default     = "33045692"
+}
+
+variable "infra_github_repo_id" {
+  description = "ID numerico imutavel do repositorio OficinaMecanica.Infra no GitHub (obtido via `gh api repos/willianrmattos/OficinaMecanica.Infra` campo id) - ver infra_github_owner_id."
+  type        = string
+  default     = "1348724486"
+}
+
+variable "banco_github_owner_id" {
+  description = "ID numerico imutavel da conta 'willianrmattos' no GitHub - mesmo valor de infra_github_owner_id (mesma conta, repositorio diferente)."
+  type        = string
+  default     = "33045692"
+}
+
+variable "banco_github_repo_id" {
+  description = "ID numerico imutavel do repositorio OficinaMecanica.Banco no GitHub (obtido via `gh api repos/willianrmattos/OficinaMecanica.Banco` campo id) - ver infra_github_owner_id."
+  type        = string
+  default     = "1350606167"
 }
 
 variable "apim_name" {
