@@ -14,6 +14,7 @@ module "storage" {
   location             = module.rg.location
   resource_group_name  = module.rg.resource_group_name
   storage_account_name = var.storage_account_name
+  admin_object_id      = var.admin_object_id
   tags                 = var.tags
 }
 
@@ -42,6 +43,7 @@ module "keyvault" {
   location            = module.rg.location
   resource_group_name = module.rg.resource_group_name
   key_vault_name      = var.key_vault_name
+  admin_object_id     = var.admin_object_id
   tags                = var.tags
 }
 
@@ -70,6 +72,7 @@ module "github_oidc_infra" {
 
   resource_group_id  = module.rg.resource_group_id
   storage_account_id = module.storage.storage_account_id
+  key_vault_id       = module.keyvault.key_vault_id
 }
 
 module "github_oidc_banco" {

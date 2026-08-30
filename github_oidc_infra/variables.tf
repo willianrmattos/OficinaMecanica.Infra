@@ -29,6 +29,11 @@ variable "storage_account_id" {
   type        = string
 }
 
+variable "key_vault_id" {
+  description = "ID do Key Vault (modulo keyvault) - o principal recebe Key Vault Administrator nele, ja que varios recursos deste repo (keyvault_secrets.tf, seguranca_keyvault.tf) leem/escrevem secrets e chaves durante o plan/apply, e RBAC de dados do Key Vault e separado do Contributor (control-plane) ja concedido no resource group inteiro."
+  type        = string
+}
+
 variable "tfstate_container_name" {
   description = "Nome do container de blob que guarda o tfstate."
   type        = string

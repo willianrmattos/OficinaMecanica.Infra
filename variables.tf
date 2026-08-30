@@ -1,3 +1,9 @@
+variable "admin_object_id" {
+  description = "Object ID (Azure AD) do usuario humano dono desta assinatura (obtido via `az ad signed-in-user show`) - usado como principal_id fixo nas role assignments de acesso administrativo (Key Vault Administrator, Storage Blob Data Contributor do tfstate) que antes usavam data.azurerm_client_config.current.object_id. Precisou virar uma variavel explicita porque a CI (identidades github_oidc_infra/github_oidc_banco) tambem roda terraform plan/apply nesse mesmo state - com o data source dinamico, cada lado (humano local vs. CI) ficava substituindo o principal_id do outro a cada execucao."
+  type        = string
+  default     = "9597844b-eab3-418d-a8dd-f938e9dfaba8"
+}
+
 variable "location" {
   description = "Regiao do Azure onde todos os recursos serao criados. A assinatura Azure for Students so permite: chilecentral, canadacentral, northcentralus, eastus, mexicocentral."
   type        = string

@@ -94,6 +94,18 @@ resource "azurerm_role_assignment" "tfstate_container_contributor" {
   skip_service_principal_aad_check = true
 }
 
+# Key Vault Administrator (RBAC de dados do proprio vault) - Contributor
+# (acima) e so control-plane, nao inclui ler/escrever o CONTEUDO de
+# secrets/chaves. Sem essa role, o plan falha com 403 (ForbiddenByRbac) ao
+# tentar ler os secrets/chaves que keyvault_secrets.tf/seguranca_keyvault.tf
+# gerenciam - confirmado ao rodar o primeiro PR de teste desta identidade.
+resource "azurerm_role_assignment" "keyvault_administrator" {
+  scope                            = var.key_vault_id
+  role_definition_name             = "Key Vault Administrator"
+  principal_id                     = azuread_service_principal.github_actions.object_id
+  skip_service_principal_aad_check = true
+}
+
 data "azuread_service_principal" "msgraph" {
   client_id = "00000003-0000-0000-c000-000000000000"
 }
