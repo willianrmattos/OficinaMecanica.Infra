@@ -64,7 +64,9 @@ module "github_oidc" {
 module "github_oidc_infra" {
   source = "./github_oidc_infra"
 
-  github_repo = var.github_repo_infra
+  github_repo     = var.github_repo_infra
+  github_owner_id = var.infra_github_owner_id
+  github_repo_id  = var.infra_github_repo_id
 
   resource_group_id  = module.rg.resource_group_id
   storage_account_id = module.storage.storage_account_id
@@ -73,7 +75,9 @@ module "github_oidc_infra" {
 module "github_oidc_banco" {
   source = "./github_oidc_banco"
 
-  github_repo = var.banco_github_repo
+  github_repo     = var.banco_github_repo
+  github_owner_id = var.banco_github_owner_id
+  github_repo_id  = var.banco_github_repo_id
 
   resource_group_id  = module.rg.resource_group_id
   storage_account_id = module.storage.storage_account_id

@@ -9,6 +9,16 @@ variable "github_repo" {
   type        = string
 }
 
+variable "github_owner_id" {
+  description = "ID numerico imutavel da conta dona do repositorio no GitHub - ver comentario em main.tf sobre o formato de subject OIDC com IDs imutaveis."
+  type        = string
+}
+
+variable "github_repo_id" {
+  description = "ID numerico imutavel do repositorio OficinaMecanica.Infra no GitHub - ver github_owner_id."
+  type        = string
+}
+
 variable "resource_group_id" {
   description = "ID do resource group (modulo rg) - o principal recebe Contributor nele inteiro, cobrindo tanto plan/validate quanto apply de verdade."
   type        = string

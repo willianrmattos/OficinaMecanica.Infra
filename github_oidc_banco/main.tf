@@ -21,13 +21,24 @@ resource "azuread_service_principal" "github_actions" {
   client_id = azuread_application.github_actions.client_id
 }
 
+locals {
+  # Subject com IDs imutaveis embutidos (owner@ownerId/repo@repoId), NAO o
+  # formato classico "repo:owner/repo:..." usado no modulo github_oidc
+  # (OficinaMecanica, repo mais antigo, criado antes desse default mudar).
+  # Este repositorio ja nasceu com o novo default do GitHub - confirmado
+  # empiricamente pelo erro AADSTS700213 apresentando o subject nesse
+  # formato na primeira tentativa de login OIDC (mesmo caso ja visto em
+  # github_oidc_seguranca/).
+  github_subject_prefix = "repo:${split("/", var.github_repo)[0]}@${var.github_owner_id}/${split("/", var.github_repo)[1]}@${var.github_repo_id}"
+}
+
 resource "azuread_application_federated_identity_credential" "pull_request" {
   application_id = azuread_application.github_actions.id
   display_name   = "github-actions-pull-request"
   description    = "Permite ao workflow de terraform plan (PR) do OficinaMecanica.Banco autenticar via OIDC."
   audiences      = ["api://AzureADTokenExchange"]
   issuer         = "https://token.actions.githubusercontent.com"
-  subject        = "repo:${var.github_repo}:pull_request"
+  subject        = "${local.github_subject_prefix}:pull_request"
 }
 
 resource "azuread_application_federated_identity_credential" "main_branch" {
@@ -36,7 +47,7 @@ resource "azuread_application_federated_identity_credential" "main_branch" {
   description    = "Permite ao workflow de terraform apply (push em main) do OficinaMecanica.Banco autenticar via OIDC."
   audiences      = ["api://AzureADTokenExchange"]
   issuer         = "https://token.actions.githubusercontent.com"
-  subject        = "repo:${var.github_repo}:ref:refs/heads/main"
+  subject        = "${local.github_subject_prefix}:ref:refs/heads/main"
 }
 
 resource "azuread_application_federated_identity_credential" "release_branch" {
@@ -45,7 +56,7 @@ resource "azuread_application_federated_identity_credential" "release_branch" {
   description    = "Permite ao workflow de terraform apply (push em release) do OficinaMecanica.Banco autenticar via OIDC."
   audiences      = ["api://AzureADTokenExchange"]
   issuer         = "https://token.actions.githubusercontent.com"
-  subject        = "repo:${var.github_repo}:ref:refs/heads/release"
+  subject        = "${local.github_subject_prefix}:ref:refs/heads/release"
 }
 
 # Reader no resource group inteiro - so pra resolver o "data

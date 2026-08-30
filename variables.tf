@@ -83,6 +83,30 @@ variable "banco_github_repo" {
   default     = "willianrmattos/OficinaMecanica.Banco"
 }
 
+variable "infra_github_owner_id" {
+  description = "ID numerico imutavel da conta 'willianrmattos' no GitHub (obtido via `gh api users/willianrmattos` campo id) - ver comentario em github_oidc_infra/main.tf sobre o formato de subject OIDC com IDs imutaveis (esse repo, assim como Banco e Seguranca, ja nasceu com esse default - confirmado empiricamente pelo erro AADSTS700213 apresentando o subject nesse formato)."
+  type        = string
+  default     = "33045692"
+}
+
+variable "infra_github_repo_id" {
+  description = "ID numerico imutavel do repositorio OficinaMecanica.Infra no GitHub (obtido via `gh api repos/willianrmattos/OficinaMecanica.Infra` campo id) - ver infra_github_owner_id."
+  type        = string
+  default     = "1348724486"
+}
+
+variable "banco_github_owner_id" {
+  description = "ID numerico imutavel da conta 'willianrmattos' no GitHub - mesmo valor de infra_github_owner_id (mesma conta, repositorio diferente)."
+  type        = string
+  default     = "33045692"
+}
+
+variable "banco_github_repo_id" {
+  description = "ID numerico imutavel do repositorio OficinaMecanica.Banco no GitHub (obtido via `gh api repos/willianrmattos/OficinaMecanica.Banco` campo id) - ver infra_github_owner_id."
+  type        = string
+  default     = "1350606167"
+}
+
 variable "apim_name" {
   description = "Nome da instancia do API Management (modulo apim). Globalmente unico (vira <nome>.azure-api.net)."
   type        = string
