@@ -154,10 +154,10 @@ variable "seguranca_rsa_key_name" {
   default     = "seguranca-rs256"
 }
 
-variable "seguranca_seed_admin_usuario" {
-  description = "Nome de usuario do admin inicial seedado pelo OficinaMecanica.Seguranca (nao sensivel - so a senha e)."
+variable "seguranca_seed_admin_cpf" {
+  description = "CPF do admin inicial seedado pelo OficinaMecanica.Seguranca - login passou a ser por CPF, nao nome de usuario (nao sensivel - so a senha e). Valor de exemplo (checksum valido, nao e CPF de ninguem real)."
   type        = string
-  default     = "admin"
+  default     = "74921686084"
 }
 
 variable "seguranca_seed_admin_senha" {
