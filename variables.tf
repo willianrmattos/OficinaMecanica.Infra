@@ -155,9 +155,8 @@ variable "seguranca_rsa_key_name" {
 }
 
 variable "seguranca_seed_admin_cpf" {
-  description = "CPF do admin inicial seedado pelo OficinaMecanica.Seguranca - login passou a ser por CPF, nao nome de usuario (nao sensivel - so a senha e). Valor de exemplo (checksum valido, nao e CPF de ninguem real)."
+  description = "CPF do admin inicial seedado pelo OficinaMecanica.Seguranca - login passou a ser por CPF, nao nome de usuario (nao sensivel - so a senha e). Sem valor padrao: definir via TF_VAR_seguranca_seed_admin_cpf ou um .tfvars nao versionado."
   type        = string
-  default     = "74921686084"
 }
 
 variable "seguranca_seed_admin_senha" {
