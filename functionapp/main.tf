@@ -70,7 +70,7 @@ resource "azurerm_linux_function_app" "this" {
     "JwtSettings__Issuer"           = var.jwt_issuer
     "JwtSettings__Audience"         = var.jwt_audience
     "JwtSettings__ExpiracaoMinutos" = tostring(var.jwt_expiracao_minutos)
-    "SeedAdmin__NomeUsuario"        = var.seed_admin_usuario
+    "SeedAdmin__Cpf"                = var.seed_admin_cpf
   }
 
   tags = var.tags

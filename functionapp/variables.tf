@@ -49,10 +49,10 @@ variable "seed_admin_senha_secret_uri" {
   type        = string
 }
 
-variable "seed_admin_usuario" {
-  description = "Nome de usuario do admin inicial seedado (nao sensivel - so a senha e)."
+variable "seed_admin_cpf" {
+  description = "CPF do admin inicial seedado (nao sensivel - so a senha e). Valor de exemplo (checksum valido, nao e CPF de ninguem real)."
   type        = string
-  default     = "admin"
+  default     = "74921686084"
 }
 
 variable "jwt_issuer" {
