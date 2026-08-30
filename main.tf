@@ -131,6 +131,7 @@ module "github_oidc_seguranca" {
   github_owner_id = var.seguranca_github_owner_id
   github_repo_id  = var.seguranca_github_repo_id
   function_app_id = module.functionapp.function_app_id
+  key_vault_id    = module.keyvault.key_vault_id
 }
 
 module "apim" {
