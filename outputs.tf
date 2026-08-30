@@ -104,3 +104,13 @@ output "seguranca_github_actions_client_id" {
   value       = module.github_oidc_seguranca.client_id
 }
 
+output "infra_client_id" {
+  description = "Client ID da App Registration unica (validate + apply, PR e push em main/release) do OficinaMecanica.Infra - configurar como variavel AZURE_CLIENT_ID nesse repositorio (gh variable set)."
+  value       = module.github_oidc_infra.client_id
+}
+
+output "banco_client_id" {
+  description = "Client ID da App Registration unica (validate + apply, PR e push em main/release) do OficinaMecanica.Banco - configurar como variavel AZURE_CLIENT_ID nesse repositorio (gh variable set)."
+  value       = module.github_oidc_banco.client_id
+}
+

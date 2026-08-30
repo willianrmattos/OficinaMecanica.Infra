@@ -14,6 +14,7 @@ module "storage" {
   location             = module.rg.location
   resource_group_name  = module.rg.resource_group_name
   storage_account_name = var.storage_account_name
+  admin_object_id      = var.admin_object_id
   tags                 = var.tags
 }
 
@@ -42,6 +43,7 @@ module "keyvault" {
   location            = module.rg.location
   resource_group_name = module.rg.resource_group_name
   key_vault_name      = var.key_vault_name
+  admin_object_id     = var.admin_object_id
   tags                = var.tags
 }
 
@@ -59,6 +61,33 @@ module "github_oidc" {
   github_repo = var.github_repo
   acr_id      = module.acr.registry_id
   aks_id      = module.aks.cluster_id
+}
+
+module "github_oidc_infra" {
+  source = "./github_oidc_infra"
+
+  github_repo     = var.github_repo_infra
+  github_owner_id = var.infra_github_owner_id
+  github_repo_id  = var.infra_github_repo_id
+
+  resource_group_id  = module.rg.resource_group_id
+  storage_account_id = module.storage.storage_account_id
+  key_vault_id       = module.keyvault.key_vault_id
+}
+
+module "github_oidc_banco" {
+  source = "./github_oidc_banco"
+
+  github_repo     = var.banco_github_repo
+  github_owner_id = var.banco_github_owner_id
+  github_repo_id  = var.banco_github_repo_id
+
+  resource_group_id  = module.rg.resource_group_id
+  storage_account_id = module.storage.storage_account_id
+
+  subscription_id     = data.azurerm_client_config.current.subscription_id
+  resource_group_name = module.rg.resource_group_name
+  sql_server_name     = var.sql_server_name
 }
 
 module "functionapp" {

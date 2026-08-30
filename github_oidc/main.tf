@@ -21,6 +21,15 @@ resource "azuread_application_federated_identity_credential" "main_branch" {
   subject        = "repo:${var.github_repo}:ref:refs/heads/main"
 }
 
+resource "azuread_application_federated_identity_credential" "release_branch" {
+  application_id = azuread_application.github_actions.id
+  display_name   = "github-actions-release-branch"
+  description    = "Permite ao workflow do GitHub Actions autenticar via OIDC, restrito a branch release de ${var.github_repo}."
+  audiences      = ["api://AzureADTokenExchange"]
+  issuer         = "https://token.actions.githubusercontent.com"
+  subject        = "repo:${var.github_repo}:ref:refs/heads/release"
+}
+
 # Permissao pro estagio de build+push: so envia imagens ao ACR.
 resource "azurerm_role_assignment" "acr_push" {
   scope                            = var.acr_id
