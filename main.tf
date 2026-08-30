@@ -61,6 +61,28 @@ module "github_oidc" {
   aks_id      = module.aks.cluster_id
 }
 
+module "github_oidc_infra" {
+  source = "./github_oidc_infra"
+
+  github_repo = var.github_repo_infra
+
+  resource_group_id  = module.rg.resource_group_id
+  storage_account_id = module.storage.storage_account_id
+}
+
+module "github_oidc_banco" {
+  source = "./github_oidc_banco"
+
+  github_repo = var.banco_github_repo
+
+  resource_group_id  = module.rg.resource_group_id
+  storage_account_id = module.storage.storage_account_id
+
+  subscription_id     = data.azurerm_client_config.current.subscription_id
+  resource_group_name = module.rg.resource_group_name
+  sql_server_name     = var.sql_server_name
+}
+
 module "functionapp" {
   source = "./functionapp"
 

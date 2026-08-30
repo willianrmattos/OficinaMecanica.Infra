@@ -32,6 +32,17 @@ resource "azuread_application_federated_identity_credential" "main_branch" {
   subject = "repo:${split("/", var.github_repo)[0]}@${var.github_owner_id}/${split("/", var.github_repo)[1]}@${var.github_repo_id}:ref:refs/heads/main"
 }
 
+resource "azuread_application_federated_identity_credential" "release_branch" {
+  application_id = azuread_application.github_actions_seguranca.id
+  display_name   = "github-actions-release-branch"
+  description    = "Permite ao workflow do GitHub Actions autenticar via OIDC, restrito a branch release de ${var.github_repo}."
+  audiences      = ["api://AzureADTokenExchange"]
+  issuer         = "https://token.actions.githubusercontent.com"
+  # Mesmo formato de subject com IDs imutaveis da credential "main_branch"
+  # acima - so troca o nome da branch.
+  subject = "repo:${split("/", var.github_repo)[0]}@${var.github_owner_id}/${split("/", var.github_repo)[1]}@${var.github_repo_id}:ref:refs/heads/release"
+}
+
 # So Contributor na propria Function App (nao no resource group inteiro) -
 # suficiente pra "az functionapp deployment source config-zip"/
 # "Azure/functions-action", sem precisar de AcrPush nem de role nenhuma no

@@ -71,6 +71,18 @@ variable "github_repo" {
   default     = "willianrmattos/OficinaMecanica"
 }
 
+variable "github_repo_infra" {
+  description = "Repositorio GitHub deste proprio repo (OficinaMecanica.Infra) no formato 'owner/repo' - usado pelo modulo github_oidc_infra pra restringir as Federated Identity Credentials (PR e push em main/release) a esse repositorio."
+  type        = string
+  default     = "willianrmattos/OficinaMecanica.Infra"
+}
+
+variable "banco_github_repo" {
+  description = "Repositorio GitHub do OficinaMecanica.Banco no formato 'owner/repo' - usado pelo modulo github_oidc_banco pra restringir as Federated Identity Credentials (PR e push em main/release) a esse repositorio."
+  type        = string
+  default     = "willianrmattos/OficinaMecanica.Banco"
+}
+
 variable "apim_name" {
   description = "Nome da instancia do API Management (modulo apim). Globalmente unico (vira <nome>.azure-api.net)."
   type        = string
