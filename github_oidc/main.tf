@@ -49,3 +49,18 @@ resource "azurerm_role_assignment" "aks_cluster_admin" {
   principal_id                     = azuread_service_principal.github_actions.object_id
   skip_service_principal_aad_check = true
 }
+
+# Permissao pro step "Aplicar migrations" (ci.yml): le a connection string
+# via "az keyvault secret show" antes do dotnet ef database update. Key
+# Vault Secrets User (RBAC de dados, so leitura) - Contributor no recurso
+# em si NAO seria suficiente e nem faz sentido aqui (essa identidade nem
+# tem Contributor no resource group, so nos recursos especificos que
+# gerencia). Sem essa role, o step falha com 403 ForbiddenByRbac -
+# encontrado ao rodar o primeiro deploy de verdade disparado por push em
+# release.
+resource "azurerm_role_assignment" "keyvault_secrets_user" {
+  scope                            = var.key_vault_id
+  role_definition_name             = "Key Vault Secrets User"
+  principal_id                     = azuread_service_principal.github_actions.object_id
+  skip_service_principal_aad_check = true
+}
