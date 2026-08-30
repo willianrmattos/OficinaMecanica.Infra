@@ -53,3 +53,14 @@ resource "azurerm_role_assignment" "function_app_contributor" {
   principal_id                     = azuread_service_principal.github_actions_seguranca.object_id
   skip_service_principal_aad_check = true
 }
+
+# Permissao pro step "Aplicar migrations" (ci.yml): le a connection string
+# via "az keyvault secret show" antes do dotnet ef database update. Key
+# Vault Secrets User (RBAC de dados, so leitura) - Contributor na Function
+# App (acima) nao inclui acesso de dados ao Key Vault.
+resource "azurerm_role_assignment" "keyvault_secrets_user" {
+  scope                            = var.key_vault_id
+  role_definition_name             = "Key Vault Secrets User"
+  principal_id                     = azuread_service_principal.github_actions_seguranca.object_id
+  skip_service_principal_aad_check = true
+}

@@ -18,8 +18,10 @@ newrelic_license_key  = "<license-key-da-conta-new-relic>"
 # na New Relic - NAO e a User API Key (prefixo "NRAK-", usada so pelo MCP/
 # NerdGraph/CLI).
 
-# sql_administrator_login_password e seguranca_seed_admin_senha nao tem
-# default - definir via variavel de ambiente antes do apply:
+# sql_administrator_login_password, seguranca_seed_admin_senha e
+# seguranca_seed_admin_cpf nao tem default - definir via variavel de
+# ambiente antes do apply:
 # $env:TF_VAR_sql_administrator_login_password = "<senha-forte>"
 # $env:TF_VAR_apim_publisher_email = "<seu-email>"
 # $env:TF_VAR_seguranca_seed_admin_senha = "<senha-forte>"
+# $env:TF_VAR_seguranca_seed_admin_cpf = "<cpf-valido>"

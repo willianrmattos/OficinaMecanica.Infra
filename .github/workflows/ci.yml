@@ -55,6 +55,7 @@ jobs:
           TF_VAR_sql_administrator_login_password: ${{ secrets.TF_VAR_SQL_ADMINISTRATOR_LOGIN_PASSWORD }}
           TF_VAR_apim_publisher_email: ${{ secrets.TF_VAR_APIM_PUBLISHER_EMAIL }}
           TF_VAR_seguranca_seed_admin_senha: ${{ secrets.TF_VAR_SEGURANCA_SEED_ADMIN_SENHA }}
+          TF_VAR_seguranca_seed_admin_cpf: ${{ secrets.TF_VAR_SEGURANCA_SEED_ADMIN_CPF }}
           TF_VAR_newrelic_license_key: ${{ secrets.TF_VAR_NEWRELIC_LICENSE_KEY }}
 
   apply:
@@ -93,4 +94,5 @@ jobs:
           TF_VAR_sql_administrator_login_password: ${{ secrets.TF_VAR_SQL_ADMINISTRATOR_LOGIN_PASSWORD }}
           TF_VAR_apim_publisher_email: ${{ secrets.TF_VAR_APIM_PUBLISHER_EMAIL }}
           TF_VAR_seguranca_seed_admin_senha: ${{ secrets.TF_VAR_SEGURANCA_SEED_ADMIN_SENHA }}
+          TF_VAR_seguranca_seed_admin_cpf: ${{ secrets.TF_VAR_SEGURANCA_SEED_ADMIN_CPF }}
           TF_VAR_newrelic_license_key: ${{ secrets.TF_VAR_NEWRELIC_LICENSE_KEY }}
