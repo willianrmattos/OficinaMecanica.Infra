@@ -9,6 +9,27 @@ Migrado do repositorio `OficinaMecanica` (onde vivia em `infra/`) — mesmo
 backend de state remoto, nenhum recurso foi recriado no Azure durante a
 migracao.
 
+## Diagramas
+
+| Documento | Arquivo |
+|-----------|---------|
+| Visao de Componentes (nuvem, APIs, banco, monitoramento) | [docs/diagramas/diagrama-de-componentes.jpg](docs/diagramas/diagrama-de-componentes.jpg) |
+
+## RFCs (decisoes de "por que essa direcao")
+
+| RFC | Titulo |
+|-----|--------|
+| 0001 | [Terraform centralizado em repositorio proprio](docs/rfc/0001-terraform-centralizado-em-repositorio-proprio.md) |
+| 0002 | [Observabilidade - New Relic + OpenTelemetry Collector](docs/rfc/0002-observabilidade-new-relic-otel-collector.md) |
+
+## ADRs (decisoes tecnicas pontuais)
+
+| ADR | Titulo |
+|-----|--------|
+| 0001 | [OIDC/Federated Identity em vez de secrets de longa duracao](docs/adr/0001-oidc-federated-identity-github-actions.md) |
+| 0002 | [API Management na frente do ingress-nginx](docs/adr/0002-apim-gateway-na-frente-do-ingress-nginx.md) |
+| 0003 | [Homologacao e producao no mesmo cluster/aplicacao](docs/adr/0003-homologacao-e-producao-no-mesmo-cluster.md) |
+
 ## Modulos
 
 | Modulo | Recurso Azure | Finalidade |
@@ -22,6 +43,8 @@ migracao.
 | `github_oidc` | Azure AD App Registration + Federated Identity Credential | Autenticacao do GitHub Actions do repo `OficinaMecanica` no Azure via OIDC, sem secrets de longa duracao |
 | `functionapp` | Azure Function App (Consumption) | Hospeda o `OficinaMecanica.Seguranca` (autenticacao/autorizacao, emissao de JWT RS256) |
 | `github_oidc_seguranca` | Azure AD App Registration + Federated Identity Credential | Autenticacao do GitHub Actions do repo `OficinaMecanica.Seguranca` no Azure via OIDC |
+| `github_oidc_infra` | Azure AD App Registration + Federated Identity Credential | Autenticacao do GitHub Actions deste proprio repositorio (`OficinaMecanica.Infra`) no Azure via OIDC |
+| `github_oidc_banco` | Azure AD App Registration + Federated Identity Credential | Autenticacao do GitHub Actions do repo `OficinaMecanica.Banco` no Azure via OIDC |
 | `apim` | Azure API Management (Consumption) | Gateway de API na frente do `ingress-nginx` e da Function App (ver [API Gateway](#api-gateway) abaixo) |
 
 O SQL Server (`svsfiap`) e os bancos `OficinaMecanicaDb`/`SegurancaDb` foram
@@ -50,6 +73,7 @@ cp terraform.tfvars.example terraform.tfvars   # preencher os valores (nomes de 
 export TF_VAR_sql_administrator_login_password="<senha-forte>"
 export TF_VAR_apim_publisher_email="<seu-email>"
 export TF_VAR_seguranca_seed_admin_senha="<senha-forte>"
+export TF_VAR_seguranca_seed_admin_cpf="<cpf-valido>"
 
 terraform init
 terraform plan    # revisar o que sera criado/alterado antes de aplicar
@@ -70,6 +94,12 @@ O `terraform apply` cria todos os modulos na ordem correta de dependencias
 cluster AKS, Key Vault e a federacao OIDC do GitHub Actions. Para aplicar so
 uma parte especifica durante o desenvolvimento (ex: iterar num modulo sem
 tocar nos demais), use `terraform apply -target="module.<nome>"`.
+
+Os passos acima sao pra rodar manualmente/localmente. O CI/CD
+([.github/workflows/ci.yml](.github/workflows/ci.yml)) ja automatiza isso:
+`terraform plan` roda em todo PR contra `main`/`release`, e `terraform
+apply` roda automaticamente em todo push (ou disparo manual) nessas
+branches, autenticando via GitHub OIDC (`github_oidc_infra`).
 
 Depois do apply, alguns outputs sao necessarios pra configurar os
 repositorios de aplicacao (`.env` da API, variaveis do GitHub Actions):
@@ -113,6 +143,10 @@ ignorado pelo Git).
 > Terraform, nao UI manual.
 
 ## API Gateway
+
+Este repositorio e so Terraform — nao expoe nenhuma API HTTP propria, so
+provisiona o gateway que fica na frente das APIs dos outros repositorios
+(links de Swagger abaixo).
 
 O [Azure API Management](https://azure.microsoft.com/products/api-management)
 (`apim`, tier **Consumption** — sempre gratis ate 1M chamadas/mes) fica
@@ -163,3 +197,14 @@ ate o pod:
 2. **`Program.cs`** (repositorio `OficinaMecanica`) registra
    `app.UseForwardedHeaders(...)` + um middleware proprio lendo
    `X-Forwarded-Prefix` na mao pra setar `HttpRequest.PathBase`.
+
+## Stack Tecnologica
+
+| Categoria | Tecnologia | Versao |
+|-----------|-----------|--------|
+| IaC | Terraform (providers `azurerm`, `azuread`, `kubernetes`, `helm`) | >= 1.5 |
+| Nuvem | Azure (AKS, ACR, Key Vault, Azure SQL Database, API Management, Function App, Storage Account) | — |
+| Orquestracao | Kubernetes (AKS) + Helm (`ingress-nginx`, OpenTelemetry Collector, `nri-bundle`) | — |
+| Gateway | Azure API Management (tier Consumption) na frente do `ingress-nginx` e da Function App | — |
+| Observabilidade | New Relic (SaaS) via OpenTelemetry Collector, sem agente proprietario | — |
+| CI/CD | GitHub Actions + OIDC (Federated Identity Credentials, sem client secret) | — |
