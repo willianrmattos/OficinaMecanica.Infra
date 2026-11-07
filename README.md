@@ -339,10 +339,11 @@ precisa ja existir (criado pelo Banco) quando o modulo for criado.
   reescrever na policy com `<rewrite-uri template="@("/billing" +
   context.Request.Url.Path.Substring(context.Api.Path.Length + 1))" />`
   (comentario em `apim/main.tf`).
-- **Escopo de secret criado por outro repo**: as roles do `github_oidc_banco`
-  (Secrets Officer) e do `github_oidc_execucao` (Secrets User) usam o escopo
-  `<vault>/secrets/execucao-mongo-connection-string`, que depende de o secret
-  existir; se o ARM recusar, ver o bootstrap acima.
+- **Escopo de secret criado por outro repo**: a role do `github_oidc_banco`
+  (Secrets Officer) usa o escopo `<vault>/secrets/execucao-mongo-connection-string`,
+  que depende de o secret existir; se o ARM recusar, ver o bootstrap acima. O
+  `github_oidc_execucao` nao recebe role em nenhum secret (menor privilegio: o
+  pipeline dela nao tem migration).
 - **Capacidade do no**: RabbitMQ pede 100m de CPU/256Mi de request num no
   unico (`Standard_D4as_v4`) sem folga; conferir `kubectl describe node`
   antes do apply (o StatefulSet espera o rollout e falha por tempo se o pod

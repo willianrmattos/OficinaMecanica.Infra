@@ -25,8 +25,9 @@ montado depois que o ID do repositorio e conhecido.
   o job de deploy tem `AcrPush` e Cluster Admin.
 - Roles: `AcrPush` no `acrfiap`, `Azure Kubernetes Service Cluster Admin
   Role` no `aksfiap` e `Key Vault Secrets User` **escopado em cada secret**
-  listado em `key_vault_secret_scopes` (Billing: `billing-sql-connection-string`;
-  Execucao: `execucao-mongo-connection-string`).
+  listado em `key_vault_secret_scopes` (Billing: `billing-sql-connection-string`,
+  lido pelo step de migration; Execucao: mapa vazio, porque o pipeline dela nao
+  tem migration e nenhum secret a ler).
 - Instancias `github_oidc_billing` e `github_oidc_execucao` na raiz com
   **criacao condicional**: `count = var.<servico>_github_repo_id == null ? 0 : 1`.
   As variaveis `billing_github_repo_id`/`execucao_github_repo_id` tem

@@ -188,14 +188,12 @@ module "github_oidc_execucao" {
   acr_id = module.acr.registry_id
   aks_id = module.aks.cluster_id
 
-  # O secret do Mongo e criado pelo OficinaMecanica.Banco (o host do cluster
-  # Atlas so existe depois que ele cria o cluster), nao por este repo - por
-  # isso o escopo e montado a partir do id do vault + nome do secret, nao de
-  # um azurerm_key_vault_secret. A ordem Banco -> Infra garante que o secret
-  # ja existe quando esta role e criada (ver README, "Ordem de aplicacao").
-  key_vault_secret_scopes = {
-    (local.execucao_mongo_secret_name) = "${module.keyvault.key_vault_id}/secrets/${local.execucao_mongo_secret_name}"
-  }
+  # Mapa vazio de proposito (menor privilegio): o pipeline da Execucao nao le
+  # nenhum secret do Key Vault. Nao ha migration (os indices do MongoDB sao
+  # criados pela propria aplicacao na subida) e a connection string do Atlas
+  # chega ao pod pelo CSI Secrets Store, com a identidade do addon do AKS, nao
+  # com a identidade deste pipeline.
+  key_vault_secret_scopes = {}
 }
 
 module "apim" {
