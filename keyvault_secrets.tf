@@ -15,8 +15,11 @@ resource "azurerm_key_vault_secret" "sql_connection_string" {
   # proprio), essas variaveis aqui so descrevem "fatos conhecidos" sobre um
   # recurso que este repo nao gerencia mais - mesmo padrao ja usado pro Key
   # Vault (key_vault_uri montado a partir de var.key_vault_name, ver
-  # functionapp/main.tf).
-  value        = "Server=tcp:${var.sql_server_name}.database.windows.net,1433;Database=${var.sql_database_name};User Id=${var.sql_administrator_login};Password=${var.sql_administrator_login_password};Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;"
+  # functionapp/main.tf). O usuario e o dedicado do OS Service (app_os, so no
+  # OficinaMecanicaDb), nunca o administrador do servidor: o OficinaMecanica.Banco
+  # precisa ter criado esse usuario ANTES deste apply (ver README, "Ordem de
+  # aplicacao").
+  value        = "Server=tcp:${var.sql_server_name}.database.windows.net,1433;Database=${var.sql_database_name};User Id=${var.sql_app_os_login};Password=${var.sql_app_os_password};Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;"
   key_vault_id = module.keyvault.key_vault_id
 }
 

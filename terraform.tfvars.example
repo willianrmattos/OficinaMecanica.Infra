@@ -6,22 +6,37 @@ aks_cluster_name      = "aksfiap"
 key_vault_name        = "kvfiap"
 sql_server_name       = "svsfiap"
 sql_database_name     = "OficinaMecanicaDb"
-sql_administrator_login = "adminfiap"
+billing_database_name = "BillingDb"
 github_repo           = "willianrmattos/OficinaMecanica"
 newrelic_license_key  = "<license-key-da-conta-new-relic>"
+rabbitmq_username     = "oficina"
 
-# sql_server_name/sql_database_name/sql_administrator_login so descrevem
+# sql_server_name/sql_database_name/billing_database_name so descrevem
 # "fatos conhecidos" sobre o banco - provisionado pelo repositorio irmao
-# OficinaMecanica.Banco, nao por este repo (ver CLAUDE.md).
+# OficinaMecanica.Banco, nao por este repo (ver CLAUDE.md). As apps usam um
+# usuario SQL dedicado por banco (sql_app_*_login, default app_os/
+# app_seguranca/app_billing), nunca o administrador do servidor.
 
 # newrelic_license_key e a License Key (ingest), Account Settings > API Keys
 # na New Relic - NAO e a User API Key (prefixo "NRAK-", usada so pelo MCP/
 # NerdGraph/CLI).
 
-# sql_administrator_login_password, seguranca_seed_admin_senha e
-# seguranca_seed_admin_cpf nao tem default - definir via variavel de
-# ambiente antes do apply:
-# $env:TF_VAR_sql_administrator_login_password = "<senha-forte>"
+# Variaveis sem default (sensiveis ou nao) - definir via variavel de
+# ambiente antes do apply (em PowerShell; no bash use export). Valores reais
+# nunca neste arquivo nem em nenhum arquivo versionado:
+# $env:TF_VAR_sql_app_os_password = "<senha-do-usuario-app_os>"
+# $env:TF_VAR_sql_app_seguranca_password = "<senha-do-usuario-app_seguranca>"
+# $env:TF_VAR_sql_app_billing_password = "<senha-do-usuario-app_billing>"
 # $env:TF_VAR_apim_publisher_email = "<seu-email>"
 # $env:TF_VAR_seguranca_seed_admin_senha = "<senha-forte>"
 # $env:TF_VAR_seguranca_seed_admin_cpf = "<cpf-valido>"
+# $env:TF_VAR_mercadopago_access_token = "<access-token-do-mercado-pago>"
+# $env:TF_VAR_mercadopago_webhook_secret = "<chave-secreta-do-webhook-mercado-pago>"
+#
+# As tres senhas sql_app_* sao as MESMAS configuradas no repositorio
+# OficinaMecanica.Banco (ele cria os usuarios, este repo monta as connection
+# strings do Key Vault) - minimo 8 caracteres, sem ponto e virgula nem aspas.
+#
+# billing_github_repo_id/execucao_github_repo_id ficam null (default em
+# variables.tf) ate os repositorios existirem no GitHub - ver README, secao
+# "Microsservicos".

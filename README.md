@@ -2,8 +2,8 @@
 
 Infraestrutura como codigo (Terraform) para o ecossistema OficinaMecanica —
 provisiona todos os recursos Azure usados pelos repositorios de aplicacao
-(`OficinaMecanica`, `OficinaMecanica.Seguranca` e futuros), num unico lugar
-centralizado.
+(`OficinaMecanica`, `OficinaMecanica.Seguranca`, `OficinaMecanica.Billing`,
+`OficinaMecanica.Execucao` e futuros), num unico lugar centralizado.
 
 Migrado do repositorio `OficinaMecanica` (onde vivia em `infra/`) — mesmo
 backend de state remoto, nenhum recurso foi recriado no Azure durante a
@@ -29,6 +29,9 @@ migracao.
 | 0001 | [OIDC/Federated Identity em vez de secrets de longa duracao](docs/adr/0001-oidc-federated-identity-github-actions.md) |
 | 0002 | [API Management na frente do ingress-nginx](docs/adr/0002-apim-gateway-na-frente-do-ingress-nginx.md) |
 | 0003 | [Homologacao e producao no mesmo cluster/aplicacao](docs/adr/0003-homologacao-e-producao-no-mesmo-cluster.md) |
+| 0004 | [RabbitMQ no AKS via StatefulSet com imagem oficial](docs/adr/0004-rabbitmq-no-aks-statefulset-com-imagem-oficial.md) |
+| 0005 | [Usuario SQL dedicado por banco e secrets por servico](docs/adr/0005-usuario-sql-dedicado-por-banco-e-secrets-por-servico.md) |
+| 0006 | [Modulo OIDC parametrizado por servico e criacao condicional](docs/adr/0006-modulo-oidc-parametrizado-por-servico-e-criacao-condicional.md) |
 
 ## Modulos
 
@@ -39,26 +42,30 @@ migracao.
 | `acr` | Azure Container Registry | Registro das imagens Docker da API |
 | `aks` | Azure Kubernetes Service | Orquestracao dos containers em producao |
 | `keyvault` | Azure Key Vault | Armazenamento centralizado de segredos, acesso via RBAC (role assignments), sem restricao de rede |
-| `helm` | Helm Releases (ingress-nginx, OpenTelemetry Collector, nri-bundle) | Ingress Controller e observabilidade (traces/metricas/logs via OpenTelemetry Collector, CPU/memoria via New Relic Infrastructure) |
+| `helm` | Helm Releases (ingress-nginx, OpenTelemetry Collector, nri-bundle) + StatefulSet do RabbitMQ | Ingress Controller, observabilidade (traces/metricas/logs via OpenTelemetry Collector, CPU/memoria via New Relic Infrastructure) e o broker de mensageria da Saga (`rabbitmq.tf`, namespace `messaging`, ver [Microsservicos](#microsservicos-billing-execucao-e-rabbitmq)) |
 | `github_oidc` | Azure AD App Registration + Federated Identity Credential | Autenticacao do GitHub Actions do repo `OficinaMecanica` no Azure via OIDC, sem secrets de longa duracao |
 | `functionapp` | Azure Function App (Consumption) | Hospeda o `OficinaMecanica.Seguranca` (autenticacao/autorizacao, emissao de JWT RS256) |
 | `github_oidc_seguranca` | Azure AD App Registration + Federated Identity Credential | Autenticacao do GitHub Actions do repo `OficinaMecanica.Seguranca` no Azure via OIDC |
 | `github_oidc_infra` | Azure AD App Registration + Federated Identity Credential | Autenticacao do GitHub Actions deste proprio repositorio (`OficinaMecanica.Infra`) no Azure via OIDC |
-| `github_oidc_banco` | Azure AD App Registration + Federated Identity Credential | Autenticacao do GitHub Actions do repo `OficinaMecanica.Banco` no Azure via OIDC |
-| `apim` | Azure API Management (Consumption) | Gateway de API na frente do `ingress-nginx` e da Function App (ver [API Gateway](#api-gateway) abaixo) |
+| `github_oidc_banco` | Azure AD App Registration + Federated Identity Credential | Autenticacao do GitHub Actions do repo `OficinaMecanica.Banco` no Azure via OIDC (tambem `Key Vault Secrets Officer` escopado so no secret `execucao-mongo-connection-string`, que o Banco grava com o host do MongoDB Atlas) |
+| `github_oidc_aks_app` | Azure AD App Registration + Federated Identity Credential | Modulo **parametrizado por servico** (AcrPush + AKS Cluster Admin + Key Vault Secrets User por secret), instanciado pra `OficinaMecanica.Billing` e `OficinaMecanica.Execucao` - so criado quando o ID do repo e informado (ver [Microsservicos](#microsservicos-billing-execucao-e-rabbitmq)) |
+| `apim` | Azure API Management (Consumption) | Gateway de API na frente do `ingress-nginx` (monolito, Billing, Execucao) e da Function App (ver [API Gateway](#api-gateway) abaixo) |
 
-O SQL Server (`svsfiap`) e os bancos `OficinaMecanicaDb`/`SegurancaDb` foram
-extraidos pro repositorio irmao
+O SQL Server (`svsfiap`) e os bancos `OficinaMecanicaDb`/`SegurancaDb`/
+`BillingDb` foram extraidos pro repositorio irmao
 [OficinaMecanica.Banco](../OficinaMecanica.Banco) (state proprio, mesma
 storage account/container do tfstate deste repo) — este repositorio so
 guarda variaveis com os "fatos conhecidos" sobre o banco (nome do servidor,
-nomes dos bancos, credenciais) pra montar as connection strings salvas no
-Key Vault, sem depender do state do `OficinaMecanica.Banco`.
+nomes dos bancos, logins e senhas dos **usuarios dedicados por banco**
+`app_os`/`app_seguranca`/`app_billing`, nunca o administrador do servidor)
+pra montar as connection strings salvas no Key Vault, sem depender do state
+do `OficinaMecanica.Banco` (ver [ADR 0005](docs/adr/0005-usuario-sql-dedicado-por-banco-e-secrets-por-servico.md)).
 
-Tres arquivos na raiz (`keyvault_secrets.tf`, `aks_keyvault_access.tf`,
-`seguranca_keyvault.tf`) conectam modulos entre si sem criar dependencia
-circular entre eles - cada um precisa enxergar dois (ou mais) modulos ao
-mesmo tempo, o que so e possivel na raiz.
+Cinco arquivos na raiz (`keyvault_secrets.tf`, `aks_keyvault_access.tf`,
+`seguranca_keyvault.tf`, `billing_keyvault.tf`, `messaging_keyvault.tf`)
+conectam modulos entre si sem criar dependencia circular entre eles - cada um
+precisa enxergar dois (ou mais) modulos ao mesmo tempo, o que so e possivel
+na raiz.
 
 ## Provisionando a infraestrutura
 
@@ -70,15 +77,33 @@ cp terraform.tfvars.example terraform.tfvars   # preencher os valores (nomes de 
 # Variaveis sensiveis (ou sem default por outro motivo) nao tem default em
 # terraform.tfvars.example de proposito (nunca commitadas) - definir via
 # variavel de ambiente antes do apply:
-export TF_VAR_sql_administrator_login_password="<senha-forte>"
+export TF_VAR_sql_app_os_password="<senha-do-usuario-app_os>"
+export TF_VAR_sql_app_seguranca_password="<senha-do-usuario-app_seguranca>"
+export TF_VAR_sql_app_billing_password="<senha-do-usuario-app_billing>"
 export TF_VAR_apim_publisher_email="<seu-email>"
 export TF_VAR_seguranca_seed_admin_senha="<senha-forte>"
 export TF_VAR_seguranca_seed_admin_cpf="<cpf-valido>"
+export TF_VAR_newrelic_license_key="<license-key-da-conta-new-relic>"
+export TF_VAR_mercadopago_access_token="<access-token-do-mercado-pago>"
+export TF_VAR_mercadopago_webhook_secret="<chave-secreta-do-webhook-mercado-pago>"
 
 terraform init
 terraform plan    # revisar o que sera criado/alterado antes de aplicar
 terraform apply
 ```
+
+> **Ordem entre repositorios: `OficinaMecanica.Banco` ANTES deste.** As
+> connection strings do Key Vault passam a usar os usuarios dedicados
+> (`app_os`/`app_seguranca`/`app_billing`) que o Banco cria; aplicar este
+> repo antes aponta o monolito e o Seguranca pra logins que ainda nao
+> existem. Detalhes em [Microsservicos](#microsservicos-billing-execucao-e-rabbitmq).
+> As tres senhas `sql_app_*_password` sao as mesmas nos dois repos.
+>
+> **Cuidado com o CI:** o merge de um PR em `release`/`main` dispara
+> `terraform apply -auto-approve` **automaticamente** (job `apply`). Mergear o
+> PR do Infra **antes** de o Banco ter criado os usuarios dedicados troca as
+> connection strings do Key Vault por logins que ainda nao existem e derruba o
+> monolito e o Seguranca - a ordem Banco -> Infra e obrigatoria tambem pro merge.
 
 > **Nota sobre o backend remoto**: o state fica em uma Storage Account
 > (`storage`, ver `backend.tf`) que e ela mesma criada pelo Terraform — na
@@ -161,6 +186,8 @@ terraform output -raw apim_gateway_url   # https://<nome>.azure-api.net
 
 - `https://<nome>.azure-api.net/oficinaserver/...` → API do repo `OficinaMecanica` (Swagger UI incluso, em `/oficinaserver/index.html`)
 - `https://<nome>.azure-api.net/segurancaserver/...` → Function App do `OficinaMecanica.Seguranca` (emissao/JWKS de JWT RS256), backend diferente do acima: aponta direto pro hostname publico da Function (`<nome>.azurewebsites.net`), sem passar pelo `ingress-nginx`/AKS
+- `https://<nome>.azure-api.net/billingserver/...` → `OficinaMecanica.Billing` (backend `http://<ip-ingress>/billing`); o webhook do Mercado Pago entra **anonimo** em `/billingserver/webhooks/mercadopago` (`terraform output mercadopago_webhook_url`)
+- `https://<nome>.azure-api.net/execucaoserver/...` → `OficinaMecanica.Execucao` (backend `http://<ip-ingress>/execucao`)
 
 (O New Relic, usado pra observabilidade, e um SaaS externo — acessado direto, sem passar pela APIM.)
 
@@ -198,13 +225,144 @@ ate o pod:
    `app.UseForwardedHeaders(...)` + um middleware proprio lendo
    `X-Forwarded-Prefix` na mao pra setar `HttpRequest.PathBase`.
 
+## Microsservicos (Billing, Execucao) e RabbitMQ
+
+O monolito virou um conjunto de microsservicos (`OficinaMecanica` = OS Service,
+`OficinaMecanica.Billing`, `OficinaMecanica.Execucao`, alem do
+`OficinaMecanica.Seguranca` ja existente) coordenados por uma Saga sobre
+RabbitMQ. A parte de infraestrutura que mora aqui:
+
+| Recurso | Onde | Resumo |
+|---------|------|--------|
+| RabbitMQ | `helm/rabbitmq.tf` | StatefulSet de 1 replica, imagem oficial `rabbitmq:4.2.9-management`, PVC 2Gi, namespace `messaging`, endereco interno `rabbitmq.messaging.svc.cluster.local:5672` (`terraform output rabbitmq_host`). Sem Ingress: management so por `kubectl -n messaging port-forward svc/rabbitmq 15672:15672` ([ADR 0004](docs/adr/0004-rabbitmq-no-aks-statefulset-com-imagem-oficial.md)) |
+| Credenciais do RabbitMQ | `messaging_keyvault.tf` | usuario `oficina` + `random_password`, guardados no Key Vault (`rabbitmq-username`/`rabbitmq-password`) e no Secret nativo do namespace `messaging` |
+| Identidades OIDC | `github_oidc_aks_app/` | uma por servico (Billing, Execucao), so push em `main`/`release`, sem `pull_request` ([ADR 0006](docs/adr/0006-modulo-oidc-parametrizado-por-servico-e-criacao-condicional.md)) |
+| Segredos | `keyvault_secrets.tf`, `seguranca_keyvault.tf`, `billing_keyvault.tf`, `messaging_keyvault.tf` | ver tabela abaixo |
+| Rotas APIM | `apim/main.tf` | `billingserver` e `execucaoserver` (wildcard, mesmo padrao do `oficinaserver`) |
+
+Segredos no Key Vault (`kvfiap`) e quem deve le-los:
+
+| Secret | Criado por | Consumidor |
+|--------|------------|------------|
+| `sql-connection-string` (usuario `app_os`) | este repo | OS Service (`OficinaMecanica`) |
+| `seguranca-sql-connection-string` (usuario `app_seguranca`) | este repo | `OficinaMecanica.Seguranca` |
+| `billing-sql-connection-string` (usuario `app_billing`) | este repo | `OficinaMecanica.Billing` |
+| `mercadopago-access-token`, `mercadopago-webhook-secret` | este repo (valor via `TF_VAR_*`) | `OficinaMecanica.Billing` |
+| `rabbitmq-username`, `rabbitmq-password` | este repo | os tres servicos |
+| `execucao-mongo-connection-string` | **`OficinaMecanica.Banco`** (o host do Atlas so existe apos criar o cluster; este repo so da ao `github_oidc_banco` o `Key Vault Secrets Officer` escopado nesse secret) | `OficinaMecanica.Execucao` |
+
+### Ordem de aplicacao: Banco -> Infra
+
+O merge de um PR em `release`/`main` dispara `terraform apply -auto-approve` automaticamente (job `apply` do CI). Mergear o PR do Infra ANTES de o Banco ter criado os usuarios dedicados troca as connection strings do Key Vault por logins que ainda nao existem e derruba o monolito e o Seguranca - a ordem Banco -> Infra vale tambem pro merge.
+
+1. **`OficinaMecanica.Banco`, LOCALMENTE na primeira vez**, com o admin humano
+   (que tem `Key Vault Administrator`): cria `BillingDb`, os usuarios SQL
+   dedicados (`app_os`, `app_seguranca`, `app_billing`) e o cluster MongoDB
+   Atlas, e grava `execucao-mongo-connection-string` no Key Vault. O CI do
+   Banco ainda nao tem permissao nesse secret.
+2. **Este repositorio** (merge do PR, que aplica pelo CI, ou apply local):
+   monta as connection strings com os usuarios que ja existem, cria o
+   RabbitMQ, as rotas da APIM, (se os IDs estiverem preenchidos) as
+   identidades OIDC e a role `Key Vault Secrets Officer` do `github_oidc_banco`,
+   escopada **so** no secret `execucao-mongo-connection-string` - escopo que
+   so pode ser criado com o secret ja existente (passo 1).
+3. Reiniciar quem consome connection string antiga: `kubectl rollout restart`
+   do monolito (le o secret via `secretKeyRef`, so no start) e reinicio da
+   Function App do Seguranca.
+4. Dai em diante o CI do Banco consegue atualizar o secret, e as proximas
+   aplicacoes do Banco podem ir pelo CI.
+
+Se o ARM recusar o escopo de secret (inexistente ou criado por outro repo), o
+apply deste repo falha nessa role **sem destruir nada**: reordene (Banco local
+primeiro) e reaplique. A role fica escopada num unico secret, e nao no vault,
+porque a identidade do Banco tem credencial de `pull_request`.
+
+### Segredos do CI (GitHub Secrets deste repositorio)
+
+Os dois jobs (`validate` e `apply`) leem estes secrets (Settings > Secrets
+and variables > Actions) e **precisam existir antes do PR/merge**, senao o
+`plan`/`apply` falha na validacao das variaveis:
+
+| GitHub Secret | Variavel Terraform | Sensivel |
+|---------------|--------------------|----------|
+| `TF_VAR_SQL_APP_OS_PASSWORD` | `sql_app_os_password` | sim |
+| `TF_VAR_SQL_APP_SEGURANCA_PASSWORD` | `sql_app_seguranca_password` | sim |
+| `TF_VAR_SQL_APP_BILLING_PASSWORD` | `sql_app_billing_password` | sim |
+| `TF_VAR_MERCADOPAGO_ACCESS_TOKEN` | `mercadopago_access_token` | sim |
+| `TF_VAR_MERCADOPAGO_WEBHOOK_SECRET` | `mercadopago_webhook_secret` | sim |
+
+(Ja existentes: `TF_VAR_APIM_PUBLISHER_EMAIL`, `TF_VAR_SEGURANCA_SEED_ADMIN_SENHA`,
+`TF_VAR_SEGURANCA_SEED_ADMIN_CPF`, `TF_VAR_NEWRELIC_LICENSE_KEY`. O secret
+`TF_VAR_SQL_ADMINISTRATOR_LOGIN_PASSWORD` deixou de ser usado - as variaveis
+do administrador do SQL Server foram removidas deste repo - e pode ser
+apagado; um `sql_administrator_login` esquecido num `terraform.tfvars` local
+gera so um aviso de variavel nao declarada.)
+
+### Depois de criar os repositorios Billing/Execucao no GitHub
+
+As identidades OIDC so sao criadas quando o ID numerico do repositorio e
+informado (`default = null` em `billing_github_repo_id`/`execucao_github_repo_id`
+mantem `validate`/`plan` verdes enquanto os repos nao existem):
+
+```bash
+gh api repos/willianrmattos/OficinaMecanica.Billing --jq .id    # -> billing_github_repo_id
+gh api repos/willianrmattos/OficinaMecanica.Execucao --jq .id   # -> execucao_github_repo_id
+```
+
+Gravar o valor no `default` da variavel em `variables.tf` (via PR - **nao so
+num `.tfvars` local**: o CI nao le `.tfvars` e um `plan` sem o ID propoe
+destruir a identidade), aplicar e configurar no repositorio do servico a
+variavel `AZURE_CLIENT_ID` com `terraform output billing_github_actions_client_id`
+(ou `execucao_github_actions_client_id`), alem de `AZURE_TENANT_ID` e
+`AZURE_SUBSCRIPTION_ID`. Para a Execucao, o secret `execucao-mongo-connection-string`
+precisa ja existir (criado pelo Banco) quando o modulo for criado.
+
+### Contrato com os repositorios dos servicos
+
+- Cada servico traz seu proprio Ingress com **prefixo de path** e rewrite
+  (monolito segue catch-all em `/`): `/billing(/|$)(.*)` e `/execucao(/|$)(.*)`
+  com `nginx.ingress.kubernetes.io/use-regex: "true"` e
+  `rewrite-target: /$2`, pra o pod receber o path sem o prefixo.
+- Cada servico le so os seus secrets via `SecretProviderClass` (CSI Secrets
+  Store, `keyvaultName: kvfiap`), mesmo padrao do monolito.
+- Os pods usam o RabbitMQ em `rabbitmq.messaging.svc.cluster.local:5672` com
+  `rabbitmq-username`/`rabbitmq-password` do Key Vault.
+
+### Pendente de confirmacao no ambiente real
+
+- **Concatenacao de path na APIM**: os backends `billing`/`execucao` tem URL
+  com prefixo (`http://<ip-ingress>/billing`). A premissa e que a APIM
+  concatena o path do backend com o path da operacao
+  (`/billingserver/health` -> `http://<ip>/billing/health`). Nao da pra provar
+  sem `apply`. Se nao concatenar, a request chegaria sem prefixo e cairia no
+  catch-all do monolito; a alternativa e manter o backend so com o IP e
+  reescrever na policy com `<rewrite-uri template="@("/billing" +
+  context.Request.Url.Path.Substring(context.Api.Path.Length + 1))" />`
+  (comentario em `apim/main.tf`).
+- **Escopo de secret criado por outro repo**: as roles do `github_oidc_banco`
+  (Secrets Officer) e do `github_oidc_execucao` (Secrets User) usam o escopo
+  `<vault>/secrets/execucao-mongo-connection-string`, que depende de o secret
+  existir; se o ARM recusar, ver o bootstrap acima.
+- **Capacidade do no**: RabbitMQ pede 100m de CPU/256Mi de request num no
+  unico (`Standard_D4as_v4`) sem folga; conferir `kubectl describe node`
+  antes do apply (o StatefulSet espera o rollout e falha por tempo se o pod
+  ficar `Pending`).
+- **Quem aplica**: o `github_oidc_infra` tem `Contributor` no resource group,
+  que nao inclui criar role assignments. Se o apply do CI falhar com
+  `AuthorizationFailed` nas roles novas, aplicar localmente (Owner) ou
+  conceder `Role Based Access Control Administrator` a essa identidade
+  (decisao nao tomada aqui).
+- Metricas Prometheus do RabbitMQ (porta 15692) estao habilitadas, mas o
+  OpenTelemetry Collector ainda nao as coleta.
+
 ## Stack Tecnologica
 
 | Categoria | Tecnologia | Versao |
 |-----------|-----------|--------|
-| IaC | Terraform (providers `azurerm`, `azuread`, `kubernetes`, `helm`) | >= 1.5 |
+| IaC | Terraform (providers `azurerm`, `azuread`, `kubernetes`, `helm`, `random`) | >= 1.5 |
 | Nuvem | Azure (AKS, ACR, Key Vault, Azure SQL Database, API Management, Function App, Storage Account) | — |
 | Orquestracao | Kubernetes (AKS) + Helm (`ingress-nginx`, OpenTelemetry Collector, `nri-bundle`) | — |
+| Mensageria | RabbitMQ 4.x (imagem oficial, StatefulSet, namespace `messaging`) | `4.2.9-management` |
 | Gateway | Azure API Management (tier Consumption) na frente do `ingress-nginx` e da Function App | — |
 | Observabilidade | New Relic (SaaS) via OpenTelemetry Collector, sem agente proprietario | — |
 | CI/CD | GitHub Actions + OIDC (Federated Identity Credentials, sem client secret) | — |

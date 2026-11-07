@@ -232,3 +232,136 @@ resource "azurerm_api_management_product_api" "seguranca" {
   api_management_name = azurerm_api_management.this.name
   resource_group_name = var.resource_group_name
 }
+
+# Billing e Execucao: mesmos modelos wildcard/passthrough das APIs acima, mas
+# atras do MESMO ingress-nginx do monolito, diferenciados por prefixo de path
+# (o monolito segue catch-all em "/"). Optei por for_each sobre um mapa (e nao
+# por copiar os blocos como fiz com oficinamecanica/seguranca) porque os dois
+# so diferem em nome/path/prefixo - um servico novo atras do ingress-nginx e
+# uma entrada nesse mapa.
+locals {
+  ingress_services = {
+    billing = {
+      api_name     = "billing-api"
+      display_name = "OficinaMecanica Billing"
+      path         = "billingserver"
+      backend_path = "/billing"
+    }
+    execucao = {
+      api_name     = "execucao-api"
+      display_name = "OficinaMecanica Execucao"
+      path         = "execucaoserver"
+      backend_path = "/execucao"
+    }
+  }
+
+  http_methods = ["GET", "POST", "PUT", "DELETE", "PATCH"]
+}
+
+# A URL do backend inclui o PREFIXO DE PATH roteado pelo ingress-nginx
+# (http://<ip>/billing, http://<ip>/execucao): o Ingress de cada servico
+# (repo do servico, k8s/) casa esse prefixo e remove com rewrite-target antes
+# de entregar ao pod. PREMISSA PENDENTE DE CONFIRMACAO no ambiente real (nao
+# da pra provar sem apply): que a APIM concatena o path do backend com o path
+# da operacao, ou seja, GET /billingserver/health chega no ingress como
+# GET /billing/health. Se nao concatenar (o path chegaria sem o prefixo e cairia
+# na regra catch-all do monolito), a alternativa e deixar o backend so com o
+# IP e reescrever na policy: <rewrite-uri template="@("/billing" +
+# context.Request.Url.Path.Substring(context.Api.Path.Length + 1))" />.
+resource "azurerm_api_management_backend" "ingress_services" {
+  for_each = local.ingress_services
+
+  name                = each.key
+  resource_group_name = var.resource_group_name
+  api_management_name = azurerm_api_management.this.name
+  protocol            = "http"
+  url                 = "http://${local.ingress_ip}${each.value.backend_path}"
+}
+
+# subscription_required = false pelo mesmo motivo da API do monolito: cada
+# servico valida o proprio JWT, e o webhook do Mercado Pago do Billing
+# (https://<apim>.azure-api.net/billingserver/webhooks/mercadopago) entra
+# anonimo - quem o autentica e a assinatura HMAC (x-signature) validada pelo
+# proprio Billing.
+resource "azurerm_api_management_api" "ingress_services" {
+  for_each = local.ingress_services
+
+  name                = each.value.api_name
+  resource_group_name = var.resource_group_name
+  api_management_name = azurerm_api_management.this.name
+  display_name        = each.value.display_name
+  revision            = "1"
+
+  path      = each.value.path
+  protocols = ["https"]
+
+  subscription_required = false
+}
+
+resource "azurerm_api_management_api_operation" "ingress_services_wildcard" {
+  for_each = {
+    for pair in setproduct(keys(local.ingress_services), local.http_methods) :
+    "${pair[0]}-${lower(pair[1])}" => {
+      service = pair[0]
+      method  = pair[1]
+    }
+  }
+
+  operation_id        = "${each.value.service}-passthrough-${lower(each.value.method)}"
+  api_name            = azurerm_api_management_api.ingress_services[each.value.service].name
+  api_management_name = azurerm_api_management.this.name
+  resource_group_name = var.resource_group_name
+  display_name        = "${local.ingress_services[each.value.service].display_name} (passthrough ${each.value.method})"
+  method              = each.value.method
+  url_template        = "/*"
+}
+
+resource "azurerm_api_management_api_policy" "ingress_services" {
+  for_each = local.ingress_services
+
+  api_name            = azurerm_api_management_api.ingress_services[each.key].name
+  api_management_name = azurerm_api_management.this.name
+  resource_group_name = var.resource_group_name
+
+  xml_content = <<XML
+<policies>
+  <inbound>
+    <base />
+    <set-backend-service backend-id="${azurerm_api_management_backend.ingress_services[each.key].name}" />
+    <!-- Mesmos X-Forwarded-* da API do monolito: o servico le esses headers
+         pra montar o servers[] do OpenAPI e o Swagger UI com a URL publica
+         da APIM e o prefixo do gateway (${each.value.path}), nao com o
+         scheme/host/path internos que o pod recebe. O prefixo do ingress
+         (${each.value.backend_path}) e removido pelo rewrite do Ingress, entao
+         nao aparece aqui. -->
+    <set-header name="X-Forwarded-Proto" exists-action="override">
+      <value>https</value>
+    </set-header>
+    <set-header name="X-Forwarded-Host" exists-action="override">
+      <value>${var.apim_name}.azure-api.net</value>
+    </set-header>
+    <set-header name="X-Forwarded-Prefix" exists-action="override">
+      <value>/${each.value.path}</value>
+    </set-header>
+  </inbound>
+  <backend>
+    <base />
+  </backend>
+  <outbound>
+    <base />
+  </outbound>
+  <on-error>
+    <base />
+  </on-error>
+</policies>
+XML
+}
+
+resource "azurerm_api_management_product_api" "ingress_services" {
+  for_each = local.ingress_services
+
+  api_name            = azurerm_api_management_api.ingress_services[each.key].name
+  product_id          = azurerm_api_management_product.this.product_id
+  api_management_name = azurerm_api_management.this.name
+  resource_group_name = var.resource_group_name
+}

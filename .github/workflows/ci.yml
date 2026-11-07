@@ -52,11 +52,15 @@ jobs:
       - name: Terraform Plan
         run: terraform plan -input=false -lock=false
         env:
-          TF_VAR_sql_administrator_login_password: ${{ secrets.TF_VAR_SQL_ADMINISTRATOR_LOGIN_PASSWORD }}
+          TF_VAR_sql_app_os_password: ${{ secrets.TF_VAR_SQL_APP_OS_PASSWORD }}
+          TF_VAR_sql_app_seguranca_password: ${{ secrets.TF_VAR_SQL_APP_SEGURANCA_PASSWORD }}
+          TF_VAR_sql_app_billing_password: ${{ secrets.TF_VAR_SQL_APP_BILLING_PASSWORD }}
           TF_VAR_apim_publisher_email: ${{ secrets.TF_VAR_APIM_PUBLISHER_EMAIL }}
           TF_VAR_seguranca_seed_admin_senha: ${{ secrets.TF_VAR_SEGURANCA_SEED_ADMIN_SENHA }}
           TF_VAR_seguranca_seed_admin_cpf: ${{ secrets.TF_VAR_SEGURANCA_SEED_ADMIN_CPF }}
           TF_VAR_newrelic_license_key: ${{ secrets.TF_VAR_NEWRELIC_LICENSE_KEY }}
+          TF_VAR_mercadopago_access_token: ${{ secrets.TF_VAR_MERCADOPAGO_ACCESS_TOKEN }}
+          TF_VAR_mercadopago_webhook_secret: ${{ secrets.TF_VAR_MERCADOPAGO_WEBHOOK_SECRET }}
 
   apply:
     name: Terraform Apply
@@ -91,8 +95,12 @@ jobs:
       - name: Terraform Apply
         run: terraform apply -input=false -auto-approve
         env:
-          TF_VAR_sql_administrator_login_password: ${{ secrets.TF_VAR_SQL_ADMINISTRATOR_LOGIN_PASSWORD }}
+          TF_VAR_sql_app_os_password: ${{ secrets.TF_VAR_SQL_APP_OS_PASSWORD }}
+          TF_VAR_sql_app_seguranca_password: ${{ secrets.TF_VAR_SQL_APP_SEGURANCA_PASSWORD }}
+          TF_VAR_sql_app_billing_password: ${{ secrets.TF_VAR_SQL_APP_BILLING_PASSWORD }}
           TF_VAR_apim_publisher_email: ${{ secrets.TF_VAR_APIM_PUBLISHER_EMAIL }}
           TF_VAR_seguranca_seed_admin_senha: ${{ secrets.TF_VAR_SEGURANCA_SEED_ADMIN_SENHA }}
           TF_VAR_seguranca_seed_admin_cpf: ${{ secrets.TF_VAR_SEGURANCA_SEED_ADMIN_CPF }}
           TF_VAR_newrelic_license_key: ${{ secrets.TF_VAR_NEWRELIC_LICENSE_KEY }}
+          TF_VAR_mercadopago_access_token: ${{ secrets.TF_VAR_MERCADOPAGO_ACCESS_TOKEN }}
+          TF_VAR_mercadopago_webhook_secret: ${{ secrets.TF_VAR_MERCADOPAGO_WEBHOOK_SECRET }}

@@ -90,3 +90,30 @@ resource "azurerm_role_assignment" "tfstate_container_contributor" {
   principal_id                     = azuread_service_principal.github_actions.object_id
   skip_service_principal_aad_check = true
 }
+
+# Key Vault Secrets Officer (RBAC de dados: criar/atualizar/ler secrets, sem
+# gerenciar chaves, certificados nem o proprio vault) escopado SO no secret
+# que o Banco grava no kvfiap (var.key_vault_secret_name, a connection string
+# do MongoDB Atlas, cujo host so existe depois que o proprio Banco cria o
+# cluster - o Infra nao tem como montar esse valor). Escopo por secret (e
+# nao no vault inteiro) porque esta identidade e unica e inclui o subject de
+# pull_request (mesma ressalva do cabecalho deste arquivo): com a role no
+# vault, qualquer workflow de PR do Banco poderia ler/sobrescrever todos os
+# secrets do ecossistema.
+#
+# Esse escopo so vale com o secret JA existente. Bootstrap, nesta ordem:
+#   1. aplicar o Banco LOCALMENTE na primeira vez, com o admin humano (tem
+#      Key Vault Administrator), que cria o secret;
+#   2. so depois o apply do Infra cria esta role escopada (o github_oidc_infra so
+#      tem Contributor, que nao cria role assignment: se o CI der AuthorizationFailed,
+#      aplique localmente com o admin humano);
+#   3. dai em diante o CI do Banco consegue atualizar o secret.
+# Se o ARM recusar o escopo (secret inexistente ou criado por outro repo), o
+# apply do Infra falha nesta role sem destruir nada - basta reordenar
+# (Banco local primeiro). Ver README e docs/adr/0005.
+resource "azurerm_role_assignment" "keyvault_secrets_officer" {
+  scope                            = "${var.key_vault_id}/secrets/${var.key_vault_secret_name}"
+  role_definition_name             = "Key Vault Secrets Officer"
+  principal_id                     = azuread_service_principal.github_actions.object_id
+  skip_service_principal_aad_check = true
+}

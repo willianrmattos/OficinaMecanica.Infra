@@ -1,5 +1,13 @@
 data "azurerm_client_config" "current" {}
 
+locals {
+  # Nome do secret com a connection string do MongoDB Atlas: gravado pelo
+  # OficinaMecanica.Banco (que precisa usar exatamente este nome) e lido pela
+  # Execucao. Fica num local pra a role do Banco (Secrets Officer) e a da
+  # Execucao (Secrets User) apontarem pro MESMO secret.
+  execucao_mongo_secret_name = "execucao-mongo-connection-string"
+}
+
 module "rg" {
   source = "./rg"
 
@@ -52,6 +60,11 @@ module "helm" {
 
   newrelic_license_key = var.newrelic_license_key
 
+  # Credenciais do RabbitMQ: a senha e gerada na raiz (messaging_keyvault.tf)
+  # pra ser gravada tambem no Key Vault, de onde as aplicacoes a leem.
+  rabbitmq_username = var.rabbitmq_username
+  rabbitmq_password = random_password.rabbitmq.result
+
   depends_on = [module.aks]
 }
 
@@ -85,6 +98,12 @@ module "github_oidc_banco" {
 
   resource_group_id  = module.rg.resource_group_id
   storage_account_id = module.storage.storage_account_id
+
+  # Secrets Officer escopado so no secret do Mongo (ver github_oidc_banco/
+  # main.tf, que descreve o bootstrap: Banco aplicado localmente antes, pra o
+  # secret existir quando esta role for criada).
+  key_vault_id          = module.keyvault.key_vault_id
+  key_vault_secret_name = local.execucao_mongo_secret_name
 
   subscription_id     = data.azurerm_client_config.current.subscription_id
   resource_group_name = module.rg.resource_group_name
@@ -132,6 +151,51 @@ module "github_oidc_seguranca" {
   github_repo_id  = var.seguranca_github_repo_id
   function_app_id = module.functionapp.function_app_id
   key_vault_id    = module.keyvault.key_vault_id
+}
+
+# Identidades OIDC dos microsservicos que rodam no AKS. count = 0 enquanto o
+# repositorio nao existe no GitHub (repo_id = null): so depois de criar o
+# repositorio e preencher billing_github_repo_id/execucao_github_repo_id
+# (variables.tf) o modulo e criado - ver docs/adr/0006.
+module "github_oidc_billing" {
+  source = "./github_oidc_aks_app"
+  count  = var.billing_github_repo_id == null ? 0 : 1
+
+  app_display_name = "github-actions-oficinamecanica-billing"
+  github_repo      = var.billing_github_repo
+  github_owner_id  = var.billing_github_owner_id
+  github_repo_id   = var.billing_github_repo_id
+
+  acr_id = module.acr.registry_id
+  aks_id = module.aks.cluster_id
+
+  # So o secret que o pipeline do Billing le (connection string, no step de
+  # migration) - nenhum outro secret do vault.
+  key_vault_secret_scopes = {
+    "billing-sql-connection-string" = azurerm_key_vault_secret.billing_sql_connection_string.resource_versionless_id
+  }
+}
+
+module "github_oidc_execucao" {
+  source = "./github_oidc_aks_app"
+  count  = var.execucao_github_repo_id == null ? 0 : 1
+
+  app_display_name = "github-actions-oficinamecanica-execucao"
+  github_repo      = var.execucao_github_repo
+  github_owner_id  = var.execucao_github_owner_id
+  github_repo_id   = var.execucao_github_repo_id
+
+  acr_id = module.acr.registry_id
+  aks_id = module.aks.cluster_id
+
+  # O secret do Mongo e criado pelo OficinaMecanica.Banco (o host do cluster
+  # Atlas so existe depois que ele cria o cluster), nao por este repo - por
+  # isso o escopo e montado a partir do id do vault + nome do secret, nao de
+  # um azurerm_key_vault_secret. A ordem Banco -> Infra garante que o secret
+  # ja existe quando esta role e criada (ver README, "Ordem de aplicacao").
+  key_vault_secret_scopes = {
+    (local.execucao_mongo_secret_name) = "${module.keyvault.key_vault_id}/secrets/${local.execucao_mongo_secret_name}"
+  }
 }
 
 module "apim" {
