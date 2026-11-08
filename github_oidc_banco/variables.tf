@@ -56,7 +56,7 @@ variable "key_vault_id" {
 }
 
 variable "key_vault_secret_name" {
-  description = "Nome do secret no Key Vault que o OficinaMecanica.Banco grava (connection string do MongoDB Atlas) - o MESMO nome usado pelo repo Banco, e tambem lido pela Execucao (github_oidc_execucao). A role Key Vault Secrets Officer do Banco e escopada nesse secret, que precisa EXISTIR quando a role e criada (ver o bootstrap em main.tf: Banco aplicado localmente primeiro)."
+  description = "Nome do secret no Key Vault que o OficinaMecanica.Banco grava (connection string do MongoDB Atlas) - o MESMO nome usado pelo repo Banco, e montado no pod da Execucao pelo Key Vault CSI (o github_oidc_execucao nao tem role no Key Vault). A role Key Vault Secrets Officer do Banco e escopada nesse secret, que precisa EXISTIR quando a role e criada (ver o bootstrap em main.tf: Banco aplicado localmente primeiro)."
   type        = string
   default     = "execucao-mongo-connection-string"
 }

@@ -106,7 +106,7 @@ resource "azurerm_role_assignment" "tfstate_container_contributor" {
 #      Key Vault Administrator), que cria o secret;
 #   2. so depois o apply do Infra cria esta role escopada (o github_oidc_infra so
 #      tem Contributor, que nao cria role assignment: se o CI der AuthorizationFailed,
-#      aplique localmente com o admin humano);
+#      aplicar localmente com o admin humano);
 #   3. dai em diante o CI do Banco consegue atualizar o secret.
 # Se o ARM recusar o escopo (secret inexistente ou criado por outro repo), o
 # apply do Infra falha nesta role sem destruir nada - basta reordenar

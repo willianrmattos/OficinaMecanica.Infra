@@ -65,9 +65,9 @@ variable "messaging_namespace" {
 }
 
 variable "rabbitmq_image_tag" {
-  description = "Tag da imagem OFICIAL do Docker Hub (rabbitmq:<tag>), variante -management (inclui o painel e a API de gerenciamento). Fixada de proposito numa 4.x exata, mesmo motivo do chart_version do ingress-nginx: sem isso um pull futuro traria outra versao sem passar por um plan. Nao usar charts/imagens Bitnami (catalogo virou pago). Reconferir a tag estavel mais recente antes do primeiro apply."
+  description = "Tag da imagem OFICIAL do Docker Hub (rabbitmq:<tag>), variante -management (inclui o painel e a API de gerenciamento). Fixada de proposito numa 4.x exata, mesmo motivo do chart_version do ingress-nginx: sem isso um pull futuro traria outra versao sem passar por um plan. Nao usar charts/imagens Bitnami (catalogo virou pago). Alinhada com a versao dos composes, do Testcontainers e do e2e dos servicos (4.4.0) e conferida com o securityContext e a configuracao deste StatefulSet (docs/adr/0004). Reconferir a tag estavel mais recente antes do primeiro apply."
   type        = string
-  default     = "4.2.9-management"
+  default     = "4.4.0-management"
 }
 
 variable "rabbitmq_username" {
@@ -82,7 +82,7 @@ variable "rabbitmq_password" {
 }
 
 variable "rabbitmq_storage_size" {
-  description = "Tamanho do PersistentVolumeClaim (Azure Disk) que guarda os dados do RabbitMQ. Pequeno de proposito: o broker so carrega as mensagens em transito da Saga. Aumentar depois e possivel (expansao de volume), diminuir nao."
+  description = "Tamanho do PersistentVolumeClaim (Azure Disk) que guarda os dados do RabbitMQ. Pequeno de proposito: o broker so carrega as mensagens em transito da Saga. Mudar este valor depois do primeiro apply nao redimensiona o disco: o volumeClaimTemplates de um StatefulSet e imutavel e a API do Kubernetes rejeita a alteracao. Aumentar exige patch manual no PVC existente (kubectl -n messaging patch pvc data-rabbitmq-0; a StorageClass managed-csi permite expansao); diminuir nao e possivel."
   type        = string
   default     = "2Gi"
 }

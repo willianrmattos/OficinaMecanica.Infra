@@ -19,7 +19,7 @@ montado depois que o ID do repositorio e conhecido.
 ## Decisao
 - Novo modulo **`github_oidc_aks_app`**, parametrizado por servico (nome da
   App Registration, repositorio, IDs imutaveis, ACR, AKS e mapa de secrets).
-  O `github_oidc` do monolito **nao e alterado**.
+  O `github_oidc` do OS Service (o antigo monolito) **nao e alterado**.
 - Federated Identity Credentials **apenas para push em `main` e `release`**
   (subject com IDs imutaveis); **nao ha credencial de `pull_request`**, pois
   o job de deploy tem `AcrPush` e Cluster Admin.
@@ -58,18 +58,22 @@ montado depois que o ID do repositorio e conhecido.
   (contas locais, sem Azure RBAC for Kubernetes): um servico comprometido
   poderia sobrescrever imagens e ler secrets de outros dentro do cluster. A
   independencia vale no plano do Azure, nao dentro do Kubernetes.
-- Coexistem dois padroes: o `github_oidc` do monolito segue com subject no
+- Coexistem dois padroes: o `github_oidc` do OS Service segue com subject no
   formato antigo e `Key Vault Secrets User` no vault inteiro; migra-lo pro
   modulo parametrizado recriaria a credencial federada e arriscaria o CI do
-  monolito.
-- Para a Execucao, a role e criada em escopo de secret criado por **outro**
-  repositorio (Banco): depende da ordem Banco -> Infra e de o escopo de
-  secret ja existente ser aceito pelo ARM (confirmar no primeiro apply).
+  OS Service.
+- A Execucao nao recebe nenhuma role no Key Vault (mapa `key_vault_secret_scopes`
+  vazio): a connection string do Atlas chega ao pod pelo CSI Secrets Store, com
+  a identidade do addon do AKS, e nao pela identidade do pipeline. A role em
+  escopo de secret criado por **outro** repositorio (Banco) e a do
+  `github_oidc_banco` (ADR 0005), que depende da ordem Banco -> Infra e de o
+  escopo de secret ja existente ser aceito pelo ARM (confirmar no primeiro
+  apply); nao tem relacao com o modulo parametrizado.
 
 ## Alternativas consideradas
 - **Generalizar o `github_oidc` existente com `for_each`**: reaproveitaria o
   codigo, mas altera um modulo ja aplicado e arrisca recriar a identidade do
-  monolito.
+  OS Service.
 - **Uma identidade compartilhada pelos microsservicos**: simples, mas viola
   o requisito de identidade propria e menor privilegio por servico.
 - **Copiar o modulo por servico** (como Banco/Seguranca): seriam seis copias
@@ -77,5 +81,5 @@ montado depois que o ID do repositorio e conhecido.
 - **Criar os modulos com `repo_id` provisorio**: o Azure AD receberia
   credencial federada com subject invalido, sem efeito real e confusa de
   auditar.
-- **Criar os repositorios antes**: bloquearia esta fase, que e so
+- **Criar os repositorios antes**: bloquearia este trabalho, que e so
   `fmt`/`validate`; a publicacao depende de autorizacao explicita.

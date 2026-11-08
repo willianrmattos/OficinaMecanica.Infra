@@ -45,13 +45,13 @@ usuario**, nao por servidor.
 - **Ordem de aplicacao obrigatoria: Banco primeiro** (cria bancos e
   usuarios), **Infra depois** (aponta as connection strings pra usuarios que
   ja existem). O merge em `release`/`main` dispara `terraform apply
-  -auto-approve`, entao mergear o PR do Infra antes do Banco derruba monolito
+  -auto-approve`, entao mergear o PR do Infra antes do Banco derruba OS Service (o antigo monolito)
   e Seguranca (logins inexistentes).
 - **Bootstrap do secret do Mongo**: (1) aplicar o Banco **localmente** na
   primeira vez, com o admin humano (Key Vault Administrator), que cria o
   secret; (2) so depois o apply do Infra cria a role escopada (o
   `github_oidc_infra` so tem `Contributor`, que nao cria role assignment: se o CI der
-  `AuthorizationFailed`, aplique localmente com o admin humano); (3) dai em diante o
+  `AuthorizationFailed`, aplicar localmente com o admin humano); (3) dai em diante o
   CI do Banco funciona. Se o ARM recusar o escopo de secret inexistente/criado
   por outro repo, o apply do Infra falha nessa role sem destruir nada e basta
   reordenar.
@@ -72,15 +72,15 @@ usuario**, nao por servidor.
 - **Contrato entre dois repos**: logins e nomes das variaveis de senha
   duplicados em Banco e Infra; senha divergente entre eles resulta em
   falha de login nos servicos. Aplicar o Infra antes do Banco quebra o
-  monolito e o Seguranca (usuarios ainda inexistentes).
-- Trocar o valor do secret nao reinicia os consumidores: o monolito (env via
+  OS Service e o Seguranca (usuarios ainda inexistentes).
+- Trocar o valor do secret nao reinicia os consumidores: o OS Service (env via
   `secretKeyRef`) precisa de novo rollout e a Function App de reinicio pra
   ler a nova connection string.
 - `db_owner` no proprio banco e amplo (permite DDL), necessario pras
   migrations do CI; separar usuario de migration e de runtime fica como
   melhoria.
 - Isolamento no Key Vault e **parcial**: identidades pre-existentes (CI do
-  monolito, CI e Function App do Seguranca, e a identidade do addon CSI do
+  OS Service, CI e Function App do Seguranca, e a identidade do addon CSI do
   AKS, compartilhada por todos os pods) mantem `Key Vault Secrets User` no
   vault inteiro. Evolucao: escopo por secret nessas identidades e Workload
   Identity por servico.

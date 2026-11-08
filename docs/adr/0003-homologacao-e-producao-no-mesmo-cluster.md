@@ -60,3 +60,10 @@ por ambiente (namespace/node pool/Function App/banco separados), eliminando
 o risco de um deploy de teste afetar producao. Esta decisao e especifica
 das restricoes de custo deste projeto, documentada tambem nos
 READMEs de `OficinaMecanica` e `OficinaMecanica.Seguranca`.
+
+## Atualizacao (microsservicos)
+A mesma decisao vale para Billing e Execucao: cada um tem um unico Deployment
+no namespace `default`, atualizado por push em `main` ou em `release` (a
+`concurrency` do pipeline enfileira os deploys), sem ambiente de homologacao
+separado. O no unico tambem hospeda o RabbitMQ (namespace `messaging`, ADR
+0004), o que reforca a restricao de CPU.

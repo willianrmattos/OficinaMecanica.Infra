@@ -40,6 +40,19 @@ Hub** `rabbitmq:<tag-4.x>-management` com **tag exata fixada** em
   entregues ao broker por Secret nativo e gravadas no Key Vault como
   `rabbitmq-username`/`rabbitmq-password` pra os servicos lerem via CSI
   Secrets Store.
+- Versao: **`4.4.0-management`**, a mesma dos `docker-compose` dos tres
+  servicos, do Testcontainers (Execucao e OS Service usam a tag; o Billing
+  fixa por digest, que e o de `4.4.0-management`) e do e2e do OS Service, pra
+  o que os testes provam valer no cluster. Conferi a imagem com o
+  `securityContext` e a configuracao deste StatefulSet (uid 999, `capabilities
+  drop ALL`, `no-new-privileges`, 512Mi e 0,5 CPU, `30-oficina.conf` e
+  `enabled_plugins` extraidos do `rabbitmq.tf`): sobe em cerca de 12 s, aplica
+  `vm_memory_high_watermark.absolute = 300MB` e `disk_free_limit.absolute =
+  256MB`, o management (15672) e as metricas Prometheus (15692) respondem, o
+  liveness `rabbitmq-diagnostics -q ping` leva poucos segundos (limite de 15 s)
+  e uma fila duravel aceita publish e get. Todos os parametros do
+  `30-oficina.conf` foram aceitos na 4.4.0, sem aviso de chave desconhecida.
+  Nada foi aplicado no cluster, entao nao ha upgrade de dados em andamento.
 
 ## Consequencias
 ### Positivas
@@ -62,6 +75,14 @@ Hub** `rabbitmq:<tag-4.x>-management` com **tag exata fixada** em
   um vhost por servico.
 - O cluster nao tem motor de NetworkPolicy habilitado: qualquer pod alcanca
   o broker e so a credencial o protege.
+- O AMQP no cluster e **sem TLS**: os servicos falam com o broker em texto
+  claro por um `ClusterIP` interno (sem Ingress nem LoadBalancer). Aceito pelo
+  mesmo motivo do no unico sem folga; TLS no listener 5672 e evolucao futura.
+- A 4.4 registra no log que `management_metrics_collection` (habilitado pelo
+  plugin de management) e um recurso deprecated: ainda funciona, mas uma
+  minor futura pode deixar de permiti-lo por padrao, e entao seria preciso
+  `deprecated_features.permit.management_metrics_collection = true` no
+  `30-oficina.conf`. Vale reler o aviso a cada troca de tag.
 - Capacidade: 100m de CPU request precisam caber no no (ver ADR 0003) -
   conferir `kubectl describe node` antes do apply; com o pod `Pending` o
   apply espera o rollout e falha por tempo.
