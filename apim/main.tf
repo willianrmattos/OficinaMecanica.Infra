@@ -42,7 +42,9 @@ resource "azurerm_api_management_backend" "ingress_nginx" {
 # em nenhum OpenAPI, tipo a propria Swagger UI
 # (/swagger/*), /health e /metrics (mapeados fora do MVC, o Swashbuckle nem
 # documentaria). Troca a curadoria de operations (visiveis uma a uma no
-# portal da APIM) por cobertura total sem manutencao manual por endpoint.
+# portal da APIM) por cobertura total sem manutencao manual por endpoint. A
+# excecao e /health/ready e /metrics, que a policy de cada API de negocio
+# bloqueia com 404 (ver o local bloqueio_endpoints_internos abaixo).
 resource "azurerm_api_management_api" "oficinamecanica" {
   name                = "oficinamecanica-api"
   resource_group_name = var.resource_group_name
@@ -76,6 +78,40 @@ resource "azurerm_api_management_api_operation" "oficinamecanica_wildcard" {
   url_template        = "/*"
 }
 
+# Guard compartilhado pelas tres APIs de negocio (esta e as do for_each
+# ingress_services; a do Seguranca fica de fora porque la nao existe
+# /health/ready nem /metrics). A operacao coringa "/*" repassa qualquer path, e
+# /health/ready (abre conexao com banco e broker) e /metrics (contadores) sao
+# anonimos nos servicos, entao a internet os alcancaria pela APIM. Optei por um
+# arquivo so, incluido em cada policy, em vez de repetir o XML por servico. As
+# probes do Kubernetes batem direto no pod e nao passam por aqui.
+#
+# O guard fica logo depois do <base /> (herda o que vier de escopos mais amplos)
+# e antes do set-backend-service: responde 404 sem chamar o backend. A policy da
+# API roda depois das de escopo mais amplo, e o path do backend (/billing,
+# /execucao) so e somado a requisicao ao backend, depois da secao inbound.
+# Mesmo assim testo o FINAL do path, nao um caminho completo: sem apply nao sei
+# se context.Request.Url.Path chega com o prefixo da API (/billingserver/...),
+# e o final do path e o mesmo com ou sem prefixo. A query string nao entra em
+# Url.Path (a APIM expoe Query/QueryString a parte). A decodificacao (%XX) e a
+# tolerancia a "//" e "/." existem porque o ingress-nginx e o ASP.NET Core
+# normalizam o path depois da APIM: sem isso "/health/%72eady" chegaria ao pod
+# como /health/ready.
+#
+# Rollout em duas etapas: Billing e Execucao (sem trafego em producao) recebem
+# o guard sempre; o oficinaserver (OS Service, em producao) so quando
+# var.bloquear_endpoints_internos_no_oficinaserver for true. Uma policy
+# expression so e validada em execucao, e um erro nela derrubaria TODAS as
+# rotas da API, entao o primeiro apply prova o guard nas APIs novas e so
+# depois eu ligo a variavel. Com false o texto da policy do oficinaserver
+# fica identico ao de antes do guard (a quebra de linha antes do guard faz
+# parte do trecho condicional), entao o plan nao propoe mudanca nela.
+locals {
+  bloqueio_endpoints_internos = trimspace(file("${path.module}/bloqueio-health-ready-e-metrics.xml"))
+
+  bloqueio_oficinaserver = var.bloquear_endpoints_internos_no_oficinaserver ? "\n    ${indent(4, local.bloqueio_endpoints_internos)}" : ""
+}
+
 # O backend de verdade (pra onde o trafego vai) e definido aqui via policy,
 # nao no "service_url" da API acima - assim a API referencia uma entidade de
 # Backend nomeada e reutilizavel, em vez de uma URL solta.
@@ -87,7 +123,7 @@ resource "azurerm_api_management_api_policy" "oficinamecanica" {
   xml_content = <<XML
 <policies>
   <inbound>
-    <base />
+    <base />${local.bloqueio_oficinaserver}
     <set-backend-service backend-id="${azurerm_api_management_backend.ingress_nginx.name}" />
     <!-- A API le esses headers (Program.cs, ForwardedHeadersMiddleware +
          leitura manual do Prefix) pra montar o servers[] do OpenAPI e o
@@ -327,6 +363,7 @@ resource "azurerm_api_management_api_policy" "ingress_services" {
 <policies>
   <inbound>
     <base />
+    ${indent(4, local.bloqueio_endpoints_internos)}
     <set-backend-service backend-id="${azurerm_api_management_backend.ingress_services[each.key].name}" />
     <!-- Mesmos X-Forwarded-* da API do monolito: o servico le esses headers
          pra montar o servers[] do OpenAPI e o Swagger UI com a URL publica

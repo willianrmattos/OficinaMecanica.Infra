@@ -2,9 +2,10 @@ data "azurerm_client_config" "current" {}
 
 locals {
   # Nome do secret com a connection string do MongoDB Atlas: gravado pelo
-  # OficinaMecanica.Banco (que precisa usar exatamente este nome) e lido pela
-  # Execucao. Fica num local pra a role do Banco (Secrets Officer) e a da
-  # Execucao (Secrets User) apontarem pro MESMO secret.
+  # OficinaMecanica.Banco (que precisa usar exatamente este nome) e montado no pod
+  # da Execucao pelo Key Vault CSI (identidade do addon do AKS; a identidade OIDC
+  # da Execucao nao tem role no Key Vault). Fica num local pra a role do Banco
+  # (Secrets Officer) apontar pro nome que o SecretProviderClass da Execucao usa.
   execucao_mongo_secret_name = "execucao-mongo-connection-string"
 }
 
@@ -207,4 +208,6 @@ module "apim" {
   ingress_nginx_namespace    = module.helm.release_namespace
   seguranca_backend_hostname = module.functionapp.default_hostname
   tags                       = var.tags
+
+  bloquear_endpoints_internos_no_oficinaserver = var.bloquear_endpoints_internos_no_oficinaserver
 }

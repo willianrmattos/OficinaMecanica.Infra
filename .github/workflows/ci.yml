@@ -7,9 +7,14 @@ on:
     branches: [main, release]
   workflow_dispatch:
 
+# So em PR uma execucao nova cancela a anterior (la o job e apenas plan, sem
+# efeito colateral). Em push/disparo manual em main/release nao cancelo: o
+# apply mexe em recursos demorados (APIM, AKS, Helm) e cancelar no meio pode
+# deixar um recurso criado fora do state e o lock do state preso. As
+# execucoes na mesma ref ficam enfileiradas.
 concurrency:
   group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read
@@ -30,6 +35,11 @@ jobs:
 
       - name: Terraform fmt check
         run: terraform fmt -check -recursive
+
+      # Prova local (sem Azure) a condicao do bloqueio de /health/ready e /metrics
+      # na APIM: le o proprio apim/bloqueio-health-ready-e-metrics.xml.
+      - name: Teste local do bloqueio de /health/ready e /metrics (APIM)
+        run: python3 -I docs/apim/testar_bloqueio_health_ready_e_metrics.py
 
       # Identidade unica do repo (module.github_oidc_infra) - cobre tanto
       # PR (plan) quanto push em main/release (apply, job abaixo).

@@ -208,6 +208,12 @@ variable "apim_publisher_email" {
   type        = string
 }
 
+variable "bloquear_endpoints_internos_no_oficinaserver" {
+  description = "Liga (true) ou nao (false) o bloqueio de /health/ready e /metrics na policy da API oficinaserver (OS Service, em producao). Billing e Execucao, sem trafego em producao, sempre recebem o bloqueio. Deixei false de proposito: uma policy expression so e validada em execucao, e um erro nela derrubaria a API do OS; o primeiro apply so mexe nas APIs novas e, depois de conferir o bloqueio nelas (lista no docs/adr/0007), o valor passa a true via PR (o CI nao le .tfvars) e um novo apply liga."
+  type        = bool
+  default     = false
+}
+
 variable "seguranca_database_name" {
   description = "Nome do banco de dados do servico OficinaMecanica.Seguranca (segundo banco no mesmo servidor svsfiap, provisionado pelo OficinaMecanica.Banco)."
   type        = string
