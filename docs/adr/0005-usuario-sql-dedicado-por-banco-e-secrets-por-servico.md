@@ -32,10 +32,11 @@ usuario**, nao por servidor.
   (`sql_administrator_login`/`_password`) foram removidas deste repo: nada
   mais as usa.
 - A connection string do MongoDB Atlas (`execucao-mongo-connection-string`)
-  e gravada no Key Vault pelo **Banco**, porque o host do cluster so existe
-  apos a criacao. Por isso o `github_oidc_banco` ganha `Key Vault Secrets
-  Officer` **escopado so nesse secret** (nao no vault: a identidade do Banco
-  tem credencial de `pull_request`); este repo nao cria o secret.
+  e gravada no Key Vault pelo root `atlas/` do **Banco**, aplicado so localmente
+  por um administrador, porque o host do cluster so existe apos a criacao; este
+  repo nao cria o secret. O `github_oidc_banco` nao tem role no Key Vault (nota de
+  atualizacao de 2026-11-09: antes ele recebia `Key Vault Secrets Officer` escopado
+  nesse secret; o ADR 0004 do Banco tirou o Atlas do CI).
 - Segredos por servico: cada servico le so os seus pelo
   `SecretProviderClass` do proprio repo, e a identidade de CI dos servicos
   novos (`github_oidc_aks_app`, ADR 0006) recebe `Key Vault Secrets User`

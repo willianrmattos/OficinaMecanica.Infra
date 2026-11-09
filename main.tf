@@ -1,14 +1,5 @@
 data "azurerm_client_config" "current" {}
 
-locals {
-  # Nome do secret com a connection string do MongoDB Atlas: gravado pelo
-  # OficinaMecanica.Banco (que precisa usar exatamente este nome) e montado no pod
-  # da Execucao pelo Key Vault CSI (identidade do addon do AKS; a identidade OIDC
-  # da Execucao nao tem role no Key Vault). Fica num local pra a role do Banco
-  # (Secrets Officer) apontar pro nome que o SecretProviderClass da Execucao usa.
-  execucao_mongo_secret_name = "execucao-mongo-connection-string"
-}
-
 module "rg" {
   source = "./rg"
 
@@ -99,12 +90,6 @@ module "github_oidc_banco" {
 
   resource_group_id  = module.rg.resource_group_id
   storage_account_id = module.storage.storage_account_id
-
-  # Secrets Officer escopado so no secret do Mongo (ver github_oidc_banco/
-  # main.tf, que descreve o bootstrap: Banco aplicado localmente antes, pra o
-  # secret existir quando esta role for criada).
-  key_vault_id          = module.keyvault.key_vault_id
-  key_vault_secret_name = local.execucao_mongo_secret_name
 
   subscription_id     = data.azurerm_client_config.current.subscription_id
   resource_group_name = module.rg.resource_group_name

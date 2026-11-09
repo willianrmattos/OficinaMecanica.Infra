@@ -81,7 +81,7 @@ Segredos: Key Vault kvfiap (CSI Secrets Store nos pods; Key Vault Reference na F
 | `functionapp` | Azure Function App (Consumption) | Hospeda o `OficinaMecanica.Seguranca` (autenticacao/autorizacao, emissao de JWT RS256) |
 | `github_oidc_seguranca` | Azure AD App Registration + Federated Identity Credential | Autenticacao do GitHub Actions do repo `OficinaMecanica.Seguranca` no Azure via OIDC |
 | `github_oidc_infra` | Azure AD App Registration + Federated Identity Credential | Autenticacao do GitHub Actions deste proprio repositorio (`OficinaMecanica.Infra`) no Azure via OIDC |
-| `github_oidc_banco` | Azure AD App Registration + Federated Identity Credential | Autenticacao do GitHub Actions do repo `OficinaMecanica.Banco` no Azure via OIDC (tambem `Key Vault Secrets Officer` escopado so no secret `execucao-mongo-connection-string`, que o Banco grava com o host do MongoDB Atlas) |
+| `github_oidc_banco` | Azure AD App Registration + Federated Identity Credential | Autenticacao do GitHub Actions do repo `OficinaMecanica.Banco` no Azure via OIDC (sem role no Key Vault: o secret do Mongo e gravado pelo root `atlas/` do Banco, aplicado so localmente) |
 | `github_oidc_aks_app` | Azure AD App Registration + Federated Identity Credential | Modulo **parametrizado por servico** (`AcrPush` no ACR + `Azure Kubernetes Service Cluster Admin Role` no AKS + `Key Vault Secrets User` **por secret**, via `key_vault_secret_scopes`), instanciado na raiz como `github_oidc_billing` (secret `billing-sql-connection-string`) e `github_oidc_execucao` (mapa vazio: nenhuma role no Key Vault). Credenciais federadas so para push em `main`/`release` (sem `pull_request`). Cada instancia so e criada (`count`) quando `billing_github_repo_id`/`execucao_github_repo_id` e informado (ver [Microsservicos](#microsservicos-billing-execucao-e-rabbitmq) e [ADR 0006](docs/adr/0006-modulo-oidc-parametrizado-por-servico-e-criacao-condicional.md)) |
 | `apim` | Azure API Management (Consumption) | Gateway de API na frente do `ingress-nginx` (OS Service, Billing, Execucao) e da Function App; as APIs de negocio bloqueiam `/health/ready` e `/metrics` com 404 (Billing e Execucao sempre; o `oficinaserver` so com `bloquear_endpoints_internos_no_oficinaserver = true`; ver [API Gateway](#api-gateway) abaixo) |
 
@@ -106,7 +106,7 @@ na raiz.
 Pre-requisitos:
 
 - [Terraform](https://developer.hashicorp.com/terraform/install) >= 1.5 (o CI usa 1.15.7) e Azure CLI autenticado (`az login`) com permissao na assinatura.
-- `OficinaMecanica.Banco` ja aplicado (bancos, usuarios SQL dedicados e, no caso da Execucao, o secret `execucao-mongo-connection-string`) - ver [Ordem de aplicacao](#ordem-de-aplicacao-banco---infra). A conta/organizacao do MongoDB Atlas e a API key de organizacao sao pre-requisitos **do Banco**, nao deste repositorio.
+- `OficinaMecanica.Banco` ja aplicado (bancos e usuarios SQL dedicados) - ver [Ordem de aplicacao](#ordem-de-aplicacao-banco---infra). O MongoDB Atlas (conta, organizacao, API key e o secret `execucao-mongo-connection-string`) vive no root `atlas/` do Banco, aplicado so localmente: nao e pre-requisito deste repositorio, so precisa estar aplicado antes do deploy da Execucao.
 - Credenciais da aplicacao do Mercado Pago (access token e chave secreta do webhook, de teste ou producao) e a License Key da conta New Relic.
 - As tres senhas `sql_app_*_password` iguais as configuradas no Banco. O Banco aplica uma regra mais estrita que a validacao deste repo (16 a 128 caracteres entre letras, digitos e `_ . @ # % ^ * + ~ -`, com maiuscula, minuscula e digito); usar uma senha que atenda as duas.
 - Em ambiente novo (sem o cluster), os providers `helm`/`kubernetes` sao configurados a partir dos outputs do `module.aks` (ver o comentario em `providers.tf`): o cluster precisa existir antes, entao aplicar primeiro `-target="module.aks"` e depois o restante. No ambiente atual o `aksfiap` ja existe.
@@ -398,7 +398,7 @@ OpenTelemetry Collector.
 | `billing-sql-connection-string` (usuario `app_billing`) | secret | este repo (`billing_keyvault.tf`) | `OficinaMecanica.Billing` |
 | `mercadopago-access-token`, `mercadopago-webhook-secret` | secret | este repo (`billing_keyvault.tf`; valor via `TF_VAR_*`) | `OficinaMecanica.Billing` |
 | `rabbitmq-username`, `rabbitmq-password` | secret | este repo (`messaging_keyvault.tf`) | OS Service, Billing e Execucao |
-| `execucao-mongo-connection-string` | secret | **`OficinaMecanica.Banco`** (o host do Atlas so existe apos criar o cluster; este repo so da ao `github_oidc_banco` o `Key Vault Secrets Officer` escopado nesse secret) | `OficinaMecanica.Execucao` |
+| `execucao-mongo-connection-string` | secret | **`OficinaMecanica.Banco`**, root `atlas/` aplicado localmente (o host do Atlas so existe apos criar o cluster; este repo nao cria o secret nem concede role nele) | `OficinaMecanica.Execucao` |
 
 ### Acesso ao Key Vault por identidade
 
@@ -414,32 +414,29 @@ vault inteiro (ver [ADR 0005](docs/adr/0005-usuario-sql-dedicado-por-banco-e-sec
 | `github_oidc` (OS Service) e `github_oidc_seguranca` | `Key Vault Secrets User` | vault (step de migration) |
 | `github_oidc_billing` | `Key Vault Secrets User` | **so** `billing-sql-connection-string` (step de migration) |
 | `github_oidc_execucao` | **nenhuma** | menor privilegio: o pipeline da Execucao nao tem migration (os indices do MongoDB sao criados pela propria aplicacao na subida) e a connection string do Atlas chega ao pod pelo CSI, com a identidade do addon, nao com a do pipeline |
-| `github_oidc_banco` | `Key Vault Secrets Officer` | **so** `execucao-mongo-connection-string` (a identidade tem credencial de `pull_request`) |
+| `github_oidc_banco` | **nenhuma** | o CI do Banco nao grava secret (o Atlas e aplicado so localmente); a identidade tem credencial de `pull_request`, entao nao deve alcancar nenhum secret |
 
 ### Ordem de aplicacao: Banco -> Infra
 
 O merge de um PR em `release`/`main` dispara `terraform apply -auto-approve` automaticamente (job `apply` do CI). Mergear o PR do Infra ANTES de o Banco ter criado os usuarios dedicados troca as connection strings do Key Vault por logins que ainda nao existem e derruba o OS Service e o Seguranca - a ordem Banco -> Infra vale tambem pro merge.
 
 1. **`OficinaMecanica.Banco`, LOCALMENTE na primeira vez**, com o admin humano
-   (que tem `Key Vault Administrator`): o `terraform apply` cria `BillingDb`,
-   o projeto/cluster M0/usuario/access list do MongoDB Atlas e grava
-   `execucao-mongo-connection-string` no Key Vault. Em seguida (ainda local,
-   recomendado) roda `sql/criar-usuarios.sql` nos tres bancos para criar os
-   usuarios dedicados `app_os`, `app_seguranca` e `app_billing` - o Terraform
-   nao cria usuario contido; a alternativa e esperar o primeiro apply do CI do
-   Banco que termine com sucesso. O CI do Banco ainda nao tem permissao nesse
-   secret. Pre-requisitos do Atlas (conta, organizacao, API key de organizacao,
-   `atlas_org_id`, IP de saida do AKS em `aks_egress_ip`, copiado a mao do
-   cluster por nao haver `terraform_remote_state`) e a decisao pendente sobre
-   como o CI do Banco alcanca a API do Atlas: ver o
-   [README do Banco](../OficinaMecanica.Banco/README.md).
+   (que tem `Key Vault Administrator`): o `terraform apply` do root principal
+   cria `BillingDb`. Em seguida (ainda local, recomendado) roda
+   `sql/criar-usuarios.sql` nos tres bancos para criar os usuarios dedicados
+   `app_os`, `app_seguranca` e `app_billing` - o Terraform nao cria usuario
+   contido; a alternativa e esperar o primeiro apply do CI do Banco que termine
+   com sucesso. O MongoDB Atlas e outro root do Banco, `atlas/`, aplicado so
+   localmente (o CI nao alcanca o Atlas, ver o ADR 0004 do Banco): cria o
+   projeto, o cluster M0, o usuario e a access list e grava
+   `execucao-mongo-connection-string` no Key Vault. Pre-requisitos dele (conta,
+   organizacao, API key de organizacao, `atlas_org_id`, IP de saida do AKS em
+   `aks_egress_ip`): [README do Banco](../OficinaMecanica.Banco/README.md).
 2. **Este repositorio** (merge do PR, que aplica pelo CI, ou apply local):
    monta as connection strings com os usuarios que ja existem, cria o
-   RabbitMQ, as rotas da APIM e a role `Key Vault Secrets Officer` do
-   `github_oidc_banco`, escopada **so** no secret
-   `execucao-mongo-connection-string` - escopo que so pode ser criado com o
-   secret ja existente (passo 1). As identidades OIDC de Billing/Execucao so
-   sao criadas se os respectivos IDs de repositorio estiverem preenchidos.
+   RabbitMQ e as rotas da APIM. As identidades OIDC de Billing/Execucao so
+   sao criadas se os respectivos IDs de repositorio estiverem preenchidos (hoje
+   o default das variaveis ja e o ID de cada repositorio).
 3. Reiniciar quem consome connection string antiga: `kubectl rollout restart`
    do OS Service (le o secret via `secretKeyRef`, so no start) e reinicio da
    Function App do Seguranca.
@@ -512,7 +509,7 @@ secret que este mesmo apply cria.
 - Cada servico le so os seus secrets via `SecretProviderClass` (CSI Secrets
   Store, `keyvaultName: kvfiap`), mesmo padrao do OS Service, com a identidade do
   addon (`terraform output key_vault_secrets_provider_client_id`). A Execucao
-  le `execucao-mongo-connection-string` (gravado pelo Banco) e `rabbitmq-*`.
+  le `execucao-mongo-connection-string` (gravado pelo root `atlas/` do Banco) e `rabbitmq-*`.
 - Os pods usam o RabbitMQ em `rabbitmq.messaging.svc.cluster.local:5672` com
   `rabbitmq-username`/`rabbitmq-password` do Key Vault.
 - O pipeline de cada servico (OIDC) so faz build/push no ACR, migration (Billing)
@@ -530,11 +527,6 @@ secret que este mesmo apply cria.
   reescrever na policy com `<rewrite-uri template="@("/billing" +
   context.Request.Url.Path.Substring(context.Api.Path.Length + 1))" />`
   (comentario em `apim/main.tf`).
-- **Escopo de secret criado por outro repo**: a role do `github_oidc_banco`
-  (Secrets Officer) usa o escopo `<vault>/secrets/execucao-mongo-connection-string`,
-  que depende de o secret existir; se o ARM recusar, ver o bootstrap acima. E a
-  unica role deste repo nesse cenario: o `github_oidc_execucao` nao recebe role
-  em nenhum secret (menor privilegio: o pipeline dela nao tem migration).
 - **Bloqueio de `/health/ready` e `/metrics` na APIM (implementado, ainda nao
   aplicado, em duas etapas)**: as rotas `oficinaserver`/`billingserver`/`execucaoserver`
   sao wildcard e repassariam qualquer path a internet, inclusive esses dois endpoints

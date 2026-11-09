@@ -49,14 +49,3 @@ variable "sql_server_name" {
   description = "Nome do SQL Server logico do OficinaMecanica.Banco (svsfiap) - usado so pra montar o escopo do role assignment Contributor."
   type        = string
 }
-
-variable "key_vault_id" {
-  description = "ID do Key Vault (modulo keyvault) - base do escopo da role Key Vault Secrets Officer, concedida SOMENTE no secret var.key_vault_secret_name (nao no vault inteiro), pra o OficinaMecanica.Banco gravar a connection string do MongoDB Atlas."
-  type        = string
-}
-
-variable "key_vault_secret_name" {
-  description = "Nome do secret no Key Vault que o OficinaMecanica.Banco grava (connection string do MongoDB Atlas) - o MESMO nome usado pelo repo Banco, e montado no pod da Execucao pelo Key Vault CSI (o github_oidc_execucao nao tem role no Key Vault). A role Key Vault Secrets Officer do Banco e escopada nesse secret, que precisa EXISTIR quando a role e criada (ver o bootstrap em main.tf: Banco aplicado localmente primeiro)."
-  type        = string
-  default     = "execucao-mongo-connection-string"
-}
