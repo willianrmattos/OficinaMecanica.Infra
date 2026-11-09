@@ -119,6 +119,12 @@ working directory, tanto rodando manualmente quanto via CI/CD.
 
 ## CI/CD
 
+**Protecao de branch**: o ruleset `protect-main-release` (so `main` e `release`: sem apagar nem force-push, PR
+obrigatorio e o check `Terraform Validate` exigido; sem bypass) ja esta ATIVO no GitHub e o arquivo versionado
+`.github/rulesets/protect-main-release.json` e equivalente a ele. Nao ha script para aplicar: se precisar recriar ou
+alterar, use a GitHub CLI com esse arquivo (`gh api --method PUT repos/willianrmattos/OficinaMecanica.Infra/rulesets/<id> --input
+.github/rulesets/protect-main-release.json`; o `<id>` sai de `gh api repos/willianrmattos/OficinaMecanica.Infra/rulesets`).
+
 `.github/workflows/ci.yml` automatiza `plan`/`apply` desta propria infra via
 GitHub OIDC (`github_oidc_infra/`, identidade unica cobrindo os dois): job
 `validate` (`fmt -check` + `validate` + `plan -lock=false`) roda em todo
