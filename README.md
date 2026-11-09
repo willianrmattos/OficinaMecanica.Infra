@@ -135,7 +135,7 @@ terraform apply
 O usuario do RabbitMQ (`rabbitmq_username`, padrao `oficina`) tem default e a
 senha e gerada por `random_password` (`messaging_keyvault.tf`), entao nenhuma
 das duas entra por `TF_VAR_*`. `billing_github_repo_id`/`execucao_github_repo_id`
-ficam `null` ate os repositorios existirem no GitHub (ver
+tem como default os ids dos repositorios criados em 2026-11-09 (ver
 [Depois de criar os repositorios Billing/Execucao no GitHub](#depois-de-criar-os-repositorios-billingexecucao-no-github)).
 
 > **Ordem entre repositorios: `OficinaMecanica.Banco` ANTES deste.** As
@@ -480,8 +480,10 @@ secret) e leem tres **variaveis** (nao secrets) do repositorio:
 ### Depois de criar os repositorios Billing/Execucao no GitHub
 
 As identidades OIDC so sao criadas quando o ID numerico do repositorio e
-informado (`default = null` em `billing_github_repo_id`/`execucao_github_repo_id`
-mantem `validate`/`plan` verdes enquanto os repos nao existem):
+informado. Os ids dos repositorios criados em 2026-11-09 (Billing `1451863424`,
+Execucao `1451865555`) ja estao como `default` em `billing_github_repo_id`/
+`execucao_github_repo_id`; `null` desliga a criacao e mantem `validate`/`plan`
+verdes num ambiente sem esses repos. Para recriar um repositorio (o id muda):
 
 ```bash
 gh api repos/willianrmattos/OficinaMecanica.Billing --jq .id    # -> billing_github_repo_id

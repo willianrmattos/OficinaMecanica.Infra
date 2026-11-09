@@ -37,6 +37,6 @@ rabbitmq_username     = "oficina"
 # OficinaMecanica.Banco (ele cria os usuarios, este repo monta as connection
 # strings do Key Vault) - minimo 8 caracteres, sem ponto e virgula nem aspas.
 #
-# billing_github_repo_id/execucao_github_repo_id ficam null (default em
-# variables.tf) ate os repositorios existirem no GitHub - ver README, secao
+# billing_github_repo_id/execucao_github_repo_id ja tem como default (em
+# variables.tf) os ids dos repositorios criados - ver README, secao
 # "Microsservicos".

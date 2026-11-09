@@ -31,7 +31,7 @@ montado depois que o ID do repositorio e conhecido.
 - Instancias `github_oidc_billing` e `github_oidc_execucao` na raiz com
   **criacao condicional**: `count = var.<servico>_github_repo_id == null ? 0 : 1`.
   As variaveis `billing_github_repo_id`/`execucao_github_repo_id` tem
-  `default = null` (com validacao: so digitos ou `null`); outputs
+  `default = null` no inicio (com validacao: so digitos ou `null`; em 2026-11-09, com os repositorios criados, o default passou a ser o id de cada um); outputs
   `billing_github_actions_client_id`/`execucao_github_actions_client_id` sao
   condicionais (`one(module.x[*].client_id)`).
 - Passo apos criar cada repositorio: `gh api repos/willianrmattos/<repo> --jq

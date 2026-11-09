@@ -299,9 +299,9 @@ variable "billing_github_owner_id" {
 }
 
 variable "billing_github_repo_id" {
-  description = "ID numerico imutavel do repositorio OficinaMecanica.Billing no GitHub (`gh api repos/willianrmattos/OficinaMecanica.Billing --jq .id`), so conhecido depois que o repositorio e criado. null (padrao) = repositorio ainda nao existe: a identidade OIDC do Billing nao e criada. Quando preenchido, o modulo passa a existir e o output billing_github_actions_client_id passa a ter valor."
+  description = "ID numerico imutavel do repositorio OficinaMecanica.Billing no GitHub (`gh api repos/willianrmattos/OficinaMecanica.Billing --jq .id`). O padrao e o id do repositorio criado em 2026-11-09 e fica aqui porque o CI nao le .tfvars. null desliga a criacao da identidade OIDC do Billing (so para um ambiente sem o repositorio); com o id preenchido o modulo existe e o output billing_github_actions_client_id tem valor."
   type        = string
-  default     = null
+  default     = "1451863424"
 
   validation {
     condition     = var.billing_github_repo_id == null || can(regex("^[0-9]+$", var.billing_github_repo_id))
@@ -322,9 +322,9 @@ variable "execucao_github_owner_id" {
 }
 
 variable "execucao_github_repo_id" {
-  description = "ID numerico imutavel do repositorio OficinaMecanica.Execucao no GitHub (`gh api repos/willianrmattos/OficinaMecanica.Execucao --jq .id`), so conhecido depois que o repositorio e criado. null (padrao) = repositorio ainda nao existe: a identidade OIDC da Execucao nao e criada. Quando preenchido, o modulo passa a existir e o output execucao_github_actions_client_id passa a ter valor."
+  description = "ID numerico imutavel do repositorio OficinaMecanica.Execucao no GitHub (`gh api repos/willianrmattos/OficinaMecanica.Execucao --jq .id`). O padrao e o id do repositorio criado em 2026-11-09 e fica aqui porque o CI nao le .tfvars. null desliga a criacao da identidade OIDC do Execucao (so para um ambiente sem o repositorio); com o id preenchido o modulo existe e o output execucao_github_actions_client_id tem valor."
   type        = string
-  default     = null
+  default     = "1451865555"
 
   validation {
     condition     = var.execucao_github_repo_id == null || can(regex("^[0-9]+$", var.execucao_github_repo_id))

@@ -154,10 +154,10 @@ module "github_oidc_seguranca" {
   key_vault_id    = module.keyvault.key_vault_id
 }
 
-# Identidades OIDC dos microsservicos que rodam no AKS. count = 0 enquanto o
-# repositorio nao existe no GitHub (repo_id = null): so depois de criar o
-# repositorio e preencher billing_github_repo_id/execucao_github_repo_id
-# (variables.tf) o modulo e criado - ver docs/adr/0006.
+# Identidades OIDC dos microsservicos que rodam no AKS. count = 0 so se o id do
+# repositorio for null (variables.tf); os ids dos repositorios criados em
+# 2026-11-09 sao o default de billing_github_repo_id/execucao_github_repo_id,
+# entao os dois modulos existem - ver docs/adr/0006.
 module "github_oidc_billing" {
   source = "./github_oidc_aks_app"
   count  = var.billing_github_repo_id == null ? 0 : 1
