@@ -31,6 +31,20 @@ resource "helm_release" "ingress_nginx" {
     value = "/healthz"
   }
 
+  # Optei por sonda TCP nas portas 80 e 443 (o path acima so vale para sonda HTTP). Quando algum Ingress de um host usa
+  # use-regex (o caso do Billing e da Execucao, com rewrite-target), o ingress-nginx trata como regex todos os paths desse
+  # host: o catch-all da API vira location ~* "^/", que casa antes do location /healthz e manda a sonda HTTP para a API
+  # (404), e o load balancer tira o no do ar. A sonda TCP so testa a porta e nao depende de nenhum roteamento de path.
+  set {
+    name  = "controller.service.annotations.service\\.beta\\.kubernetes\\.io/port_80_health-probe_protocol"
+    value = "tcp"
+  }
+
+  set {
+    name  = "controller.service.annotations.service\\.beta\\.kubernetes\\.io/port_443_health-probe_protocol"
+    value = "tcp"
+  }
+
   # Sem isso, o ingress-nginx ignora os X-Forwarded-Proto/-Host/-Prefix que a
   # policy da APIM (apim/) seta e os substitui pelos proprios valores
   # (scheme http, ja que APIM fala com o LoadBalancer em porta 80 sem TLS; e
