@@ -90,3 +90,9 @@ resource "azurerm_role_assignment" "tfstate_container_contributor" {
   principal_id                     = azuread_service_principal.github_actions.object_id
   skip_service_principal_aad_check = true
 }
+
+# Sem nenhuma role no Key Vault: a connection string do MongoDB Atlas e gravada
+# pelo root atlas/ do Banco, aplicado so da maquina de um administrador (que tem
+# Key Vault Administrator), e o CI do Banco nao grava secret nenhum (ver
+# OficinaMecanica.Banco/docs/adr/0004). Assim esta identidade, que inclui o subject
+# de pull_request, nao alcanca nenhum secret do vault.

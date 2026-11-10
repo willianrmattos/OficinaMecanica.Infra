@@ -52,6 +52,11 @@ module "helm" {
 
   newrelic_license_key = var.newrelic_license_key
 
+  # Credenciais do RabbitMQ: a senha e gerada na raiz (messaging_keyvault.tf)
+  # pra ser gravada tambem no Key Vault, de onde as aplicacoes a leem.
+  rabbitmq_username = var.rabbitmq_username
+  rabbitmq_password = random_password.rabbitmq.result
+
   depends_on = [module.aks]
 }
 
@@ -134,6 +139,49 @@ module "github_oidc_seguranca" {
   key_vault_id    = module.keyvault.key_vault_id
 }
 
+# Identidades OIDC dos microsservicos que rodam no AKS. count = 0 so se o id do
+# repositorio for null (variables.tf); os ids dos repositorios criados em
+# 2026-11-09 sao o default de billing_github_repo_id/execucao_github_repo_id,
+# entao os dois modulos existem - ver docs/adr/0006.
+module "github_oidc_billing" {
+  source = "./github_oidc_aks_app"
+  count  = var.billing_github_repo_id == null ? 0 : 1
+
+  app_display_name = "github-actions-oficinamecanica-billing"
+  github_repo      = var.billing_github_repo
+  github_owner_id  = var.billing_github_owner_id
+  github_repo_id   = var.billing_github_repo_id
+
+  acr_id = module.acr.registry_id
+  aks_id = module.aks.cluster_id
+
+  # So o secret que o pipeline do Billing le (connection string, no step de
+  # migration) - nenhum outro secret do vault.
+  key_vault_secret_scopes = {
+    "billing-sql-connection-string" = azurerm_key_vault_secret.billing_sql_connection_string.resource_versionless_id
+  }
+}
+
+module "github_oidc_execucao" {
+  source = "./github_oidc_aks_app"
+  count  = var.execucao_github_repo_id == null ? 0 : 1
+
+  app_display_name = "github-actions-oficinamecanica-execucao"
+  github_repo      = var.execucao_github_repo
+  github_owner_id  = var.execucao_github_owner_id
+  github_repo_id   = var.execucao_github_repo_id
+
+  acr_id = module.acr.registry_id
+  aks_id = module.aks.cluster_id
+
+  # Mapa vazio de proposito (menor privilegio): o pipeline da Execucao nao le
+  # nenhum secret do Key Vault. Nao ha migration (os indices do MongoDB sao
+  # criados pela propria aplicacao na subida) e a connection string do Atlas
+  # chega ao pod pelo CSI Secrets Store, com a identidade do addon do AKS, nao
+  # com a identidade deste pipeline.
+  key_vault_secret_scopes = {}
+}
+
 module "apim" {
   source = "./apim"
 
@@ -145,4 +193,6 @@ module "apim" {
   ingress_nginx_namespace    = module.helm.release_namespace
   seguranca_backend_hostname = module.functionapp.default_hostname
   tags                       = var.tags
+
+  bloquear_endpoints_internos_no_oficinaserver = var.bloquear_endpoints_internos_no_oficinaserver
 }

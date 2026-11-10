@@ -114,3 +114,32 @@ output "banco_client_id" {
   value       = module.github_oidc_banco.client_id
 }
 
+output "rabbitmq_namespace" {
+  description = "Namespace do RabbitMQ no AKS. Painel de management so via port-forward: kubectl -n <namespace> port-forward svc/rabbitmq 15672:15672."
+  value       = module.helm.messaging_namespace
+}
+
+output "rabbitmq_host" {
+  description = "Endereco interno (DNS do cluster) do RabbitMQ - host do MassTransit nas aplicacoes (OS Service, Billing, Execucao). Usuario/senha: secrets rabbitmq-username/rabbitmq-password no Key Vault."
+  value       = module.helm.rabbitmq_host
+}
+
+output "rabbitmq_amqp_port" {
+  description = "Porta AMQP do RabbitMQ (Service ClusterIP)."
+  value       = module.helm.rabbitmq_amqp_port
+}
+
+output "billing_github_actions_client_id" {
+  description = "Client ID da App Registration do GitHub Actions do OficinaMecanica.Billing - configurar como variavel AZURE_CLIENT_ID no repositorio (gh variable set). null enquanto billing_github_repo_id nao estiver preenchido (repositorio ainda nao criado no GitHub)."
+  value       = one(module.github_oidc_billing[*].client_id)
+}
+
+output "execucao_github_actions_client_id" {
+  description = "Client ID da App Registration do GitHub Actions do OficinaMecanica.Execucao - configurar como variavel AZURE_CLIENT_ID no repositorio (gh variable set). null enquanto execucao_github_repo_id nao estiver preenchido (repositorio ainda nao criado no GitHub)."
+  value       = one(module.github_oidc_execucao[*].client_id)
+}
+
+output "mercadopago_webhook_url" {
+  description = "URL publica (anonima) do webhook do Mercado Pago, entrando pela APIM no OficinaMecanica.Billing - cadastrar como notification_url/webhook na aplicacao do Mercado Pago."
+  value       = "${module.apim.gateway_url}/billingserver/webhooks/mercadopago"
+}
