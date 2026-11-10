@@ -517,19 +517,25 @@ secret que este mesmo apply cria.
   e deploy no AKS; configurar no repo do servico as variaveis `AZURE_CLIENT_ID`,
   `AZURE_TENANT_ID` e `AZURE_SUBSCRIPTION_ID`.
 
-### Pendente de confirmacao no ambiente real
+### Confirmado e pendente no ambiente real (2026-11-10)
 
-- **Concatenacao de path na APIM**: os backends `billing`/`execucao` tem URL
-  com prefixo (`http://<ip-ingress>/billing`). A premissa e que a APIM
-  concatena o path do backend com o path da operacao
-  (`/billingserver/health` -> `http://<ip>/billing/health`). Nao da pra provar
-  sem `apply`. Se nao concatenar, a request chegaria sem prefixo e cairia no
-  catch-all do OS Service; a alternativa e manter o backend so com o IP e
-  reescrever na policy com `<rewrite-uri template="@("/billing" +
-  context.Request.Url.Path.Substring(context.Api.Path.Length + 1))" />`
-  (comentario em `apim/main.tf`).
-- **Bloqueio de `/health/ready` e `/metrics` na APIM (implementado, ainda nao
-  aplicado, em duas etapas)**: as rotas `oficinaserver`/`billingserver`/`execucaoserver`
+- **Concatenacao de path na APIM (confirmada em 2026-11-10)**: os backends
+  `billing`/`execucao` tem URL com prefixo (`http://<ip-ingress>/billing`) e a
+  premissa era que a APIM concatena o path do backend com o path da operacao
+  (`/billingserver/health` -> `http://<ip>/billing/health`). Depois do apply,
+  `/billingserver/health` e `/execucaoserver/health` respondem 200 pelo APIM, entao
+  a premissa vale. A alternativa (backend so com o IP e `<rewrite-uri>` na policy,
+  comentario em `apim/main.tf`) nao foi necessaria. A raiz `/billingserver/` e
+  `/execucaoserver/` responde 500 do APIM (o servico em si redireciona para
+  `index.html`); o Swagger UI abre em `/billingserver/index.html` e
+  `/execucaoserver/index.html`.
+- **Bloqueio de `/health/ready` e `/metrics` na APIM (implementado em duas
+  etapas; em 2026-11-10 NAO esta bloqueando)**: chamando o APIM publicado,
+  `/billingserver/health/ready`, `/billingserver/metrics`, `/execucaoserver/metrics`,
+  `/oficinaserver/metrics` e `/segurancaserver/health/ready` respondem 200, inclusive em
+  Billing e Execucao, onde o guard e ligado sempre. A causa nao foi investigada
+  (conferir a policy publicada no APIM e o ultimo apply). O texto abaixo descreve o
+  desenho e o roteiro de conferencia: as rotas `oficinaserver`/`billingserver`/`execucaoserver`
   sao wildcard e repassariam qualquer path a internet, inclusive esses dois endpoints
   anonimos dos servicos (o cache de 5 s do servico limita o custo de
   `/health/ready`, mas nao esconde o endpoint nem o `/metrics`). A policy
@@ -545,10 +551,10 @@ secret que este mesmo apply cria.
   rotas normais e webhook inalterados. Etapa 2 (ligar a variavel via PR): conferir 404
   em `/oficinaserver/health/ready` e as rotas do OS inalteradas. Nao cobre quem
   acessa o IP do ingress direto.
-- **Atlas e CI do Banco**: a decisao de como o CI do `OficinaMecanica.Banco`
-  alcanca a API do MongoDB Atlas (access list da API key contra o IP variavel
-  do runner do GitHub) esta pendente e e do Banco, mas bloqueia o `plan`/`apply`
-  dele pelo CI; ver o [README do Banco](../OficinaMecanica.Banco/README.md).
+- **Atlas e CI do Banco (decidido)**: o CI do `OficinaMecanica.Banco` nao alcanca a API do
+  MongoDB Atlas (o Atlas recusa `0.0.0.0/0` na access list de uma API key e o runner do
+  GitHub tem IP variavel); o Atlas fica num root separado, aplicado so localmente
+  (ADR 0004 do Banco); ver o [README do Banco](../OficinaMecanica.Banco/README.md).
 - **Capacidade do no**: RabbitMQ pede 100m de CPU/256Mi de request num no
   unico (`Standard_D4as_v4`) sem folga; conferir `kubectl describe node`
   antes do apply (o StatefulSet espera o rollout e falha por tempo se o pod
