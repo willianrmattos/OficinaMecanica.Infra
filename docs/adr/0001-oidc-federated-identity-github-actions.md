@@ -59,3 +59,10 @@ abrindo PRs.
   a gerenciar. Chegou a ser implementado para Infra/Banco e depois
   revertido em favor de uma identidade unica por repositorio, pela
   simplicidade.
+
+## Atualizacao (microsservicos)
+Billing e Execucao ganharam identidades OIDC pelo modulo parametrizado
+`github_oidc_aks_app` (ADR 0006). A premissa "nenhum client secret" e a regra
+"uma identidade por repositorio" seguem valendo; a diferenca e que esse modulo
+nao tem credencial federada de `pull_request` (so push em `main`/`release`),
+porque o job de deploy desses servicos tem `AcrPush` e Cluster Admin.

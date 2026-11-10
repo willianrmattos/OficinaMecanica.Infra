@@ -58,16 +58,94 @@ variable "sql_database_name" {
   default     = "OficinaMecanicaDb"
 }
 
-variable "sql_administrator_login" {
-  description = "Usuario administrador do SQL Server, provisionado pelo OficinaMecanica.Banco."
+variable "billing_database_name" {
+  description = "Nome do banco de dados do servico OficinaMecanica.Billing (terceiro banco no mesmo servidor logico svsfiap, provisionado pelo OficinaMecanica.Banco)."
   type        = string
-  default     = "adminfiap"
+  default     = "BillingDb"
 }
 
-variable "sql_administrator_login_password" {
-  description = "Senha do administrador do SQL Server (mesmo valor configurado no OficinaMecanica.Banco). Sem valor padrao: definir via TF_VAR_sql_administrator_login_password ou um .tfvars nao versionado."
+# As apps NUNCA usam o administrador do SQL Server: o OficinaMecanica.Banco
+# cria um usuario contido dedicado por banco (db_owner so no proprio banco) e
+# este repo monta as connection strings do Key Vault com esses usuarios. Os
+# nomes das tres variaveis de senha sao um contrato com o Banco (mesmos nomes
+# nos dois repos); o administrador do servidor ficou so la.
+variable "sql_app_os_login" {
+  description = "Login do usuario SQL contido dedicado do OS Service (OficinaMecanica) no banco OficinaMecanicaDb - criado pelo OficinaMecanica.Banco."
+  type        = string
+  default     = "app_os"
+}
+
+variable "sql_app_os_password" {
+  description = "Senha do usuario SQL dedicado do OS Service (mesmo valor usado pelo OficinaMecanica.Banco pra cria-lo). Sem valor padrao: definir via TF_VAR_sql_app_os_password ou um .tfvars nao versionado. Minimo 8 caracteres, sem ponto e virgula nem aspas (quebrariam a connection string)."
   type        = string
   sensitive   = true
+
+  validation {
+    condition     = length(var.sql_app_os_password) >= 8 && !can(regex("[;'\"]", var.sql_app_os_password))
+    error_message = "sql_app_os_password precisa ter pelo menos 8 caracteres e nao pode conter ponto e virgula nem aspas."
+  }
+}
+
+variable "sql_app_seguranca_login" {
+  description = "Login do usuario SQL contido dedicado do OficinaMecanica.Seguranca no banco SegurancaDb - criado pelo OficinaMecanica.Banco."
+  type        = string
+  default     = "app_seguranca"
+}
+
+variable "sql_app_seguranca_password" {
+  description = "Senha do usuario SQL dedicado do OficinaMecanica.Seguranca (mesmo valor usado pelo OficinaMecanica.Banco pra cria-lo). Sem valor padrao: definir via TF_VAR_sql_app_seguranca_password ou um .tfvars nao versionado. Minimo 8 caracteres, sem ponto e virgula nem aspas."
+  type        = string
+  sensitive   = true
+
+  validation {
+    condition     = length(var.sql_app_seguranca_password) >= 8 && !can(regex("[;'\"]", var.sql_app_seguranca_password))
+    error_message = "sql_app_seguranca_password precisa ter pelo menos 8 caracteres e nao pode conter ponto e virgula nem aspas."
+  }
+}
+
+variable "sql_app_billing_login" {
+  description = "Login do usuario SQL contido dedicado do OficinaMecanica.Billing no banco BillingDb - criado pelo OficinaMecanica.Banco."
+  type        = string
+  default     = "app_billing"
+}
+
+variable "sql_app_billing_password" {
+  description = "Senha do usuario SQL dedicado do OficinaMecanica.Billing (mesmo valor usado pelo OficinaMecanica.Banco pra cria-lo). Sem valor padrao: definir via TF_VAR_sql_app_billing_password ou um .tfvars nao versionado. Minimo 8 caracteres, sem ponto e virgula nem aspas."
+  type        = string
+  sensitive   = true
+
+  validation {
+    condition     = length(var.sql_app_billing_password) >= 8 && !can(regex("[;'\"]", var.sql_app_billing_password))
+    error_message = "sql_app_billing_password precisa ter pelo menos 8 caracteres e nao pode conter ponto e virgula nem aspas."
+  }
+}
+
+variable "rabbitmq_username" {
+  description = "Usuario administrativo do RabbitMQ (namespace messaging), criado no primeiro boot do broker e guardado no Key Vault como rabbitmq-username. A senha e gerada por random_password (messaging_keyvault.tf), nao e variavel."
+  type        = string
+  default     = "oficina"
+}
+
+variable "mercadopago_access_token" {
+  description = "Access Token da aplicacao do Mercado Pago (credencial de teste/sandbox ou producao, conforme o ambiente), guardado no Key Vault como mercadopago-access-token e lido so pelo OficinaMecanica.Billing. Sem valor padrao: definir via TF_VAR_mercadopago_access_token ou um .tfvars nao versionado - o valor real nunca vai pro repositorio."
+  type        = string
+  sensitive   = true
+
+  validation {
+    condition     = length(var.mercadopago_access_token) > 0
+    error_message = "mercadopago_access_token nao pode ser vazio."
+  }
+}
+
+variable "mercadopago_webhook_secret" {
+  description = "Chave secreta da assinatura de webhook (x-signature, HMAC-SHA256) configurada na aplicacao do Mercado Pago, guardada no Key Vault como mercadopago-webhook-secret e lida so pelo OficinaMecanica.Billing. Sem valor padrao: definir via TF_VAR_mercadopago_webhook_secret ou um .tfvars nao versionado."
+  type        = string
+  sensitive   = true
+
+  validation {
+    condition     = length(var.mercadopago_webhook_secret) > 0
+    error_message = "mercadopago_webhook_secret nao pode ser vazio."
+  }
 }
 
 
@@ -128,6 +206,12 @@ variable "apim_publisher_name" {
 variable "apim_publisher_email" {
   description = "E-mail do publisher da APIM (usado pela Azure para notificacoes). Sem valor padrao: definir via TF_VAR_apim_publisher_email ou um .tfvars nao versionado."
   type        = string
+}
+
+variable "bloquear_endpoints_internos_no_oficinaserver" {
+  description = "Liga (true) ou nao (false) o bloqueio de /health/ready e /metrics na policy da API oficinaserver (OS Service, em producao). Billing e Execucao, sem trafego em producao, sempre recebem o bloqueio. Deixei false de proposito: uma policy expression so e validada em execucao, e um erro nela derrubaria a API do OS; o primeiro apply so mexe nas APIs novas e, depois de conferir o bloqueio nelas (lista no docs/adr/0007), o valor passa a true via PR (o CI nao le .tfvars) e um novo apply liga."
+  type        = bool
+  default     = false
 }
 
 variable "seguranca_database_name" {
@@ -193,6 +277,59 @@ variable "seguranca_github_repo_id" {
   description = "ID numerico imutavel do repositorio OficinaMecanica.Seguranca no GitHub (obtido via `gh api repos/willianrmattos/OficinaMecanica.Seguranca` campo id) - ver seguranca_github_owner_id."
   type        = string
   default     = "1348734211"
+}
+
+# Os repositorios Billing e Execucao ainda nao existem no GitHub, entao nao ha
+# repo_id pra preencher: default = null faz o modulo OIDC correspondente nao
+# ser criado (count = 0 em main.tf), mantendo validate/plan verdes ate a
+# publicacao. Depois de criar o repositorio:
+#   gh api repos/willianrmattos/OficinaMecanica.Billing --jq .id
+# e gravar o valor no default abaixo (e nao so num .tfvars local: o CI nao
+# enxerga .tfvars, e um plan sem o id proporia destruir a identidade).
+variable "billing_github_repo" {
+  description = "Repositorio GitHub do OficinaMecanica.Billing no formato 'owner/repo' - usado pelo modulo github_oidc_aks_app pra restringir as Federated Identity Credentials (push em main/release) a esse repositorio."
+  type        = string
+  default     = "willianrmattos/OficinaMecanica.Billing"
+}
+
+variable "billing_github_owner_id" {
+  description = "ID numerico imutavel da conta 'willianrmattos' no GitHub - mesmo valor de seguranca_github_owner_id (mesma conta, repositorio diferente)."
+  type        = string
+  default     = "33045692"
+}
+
+variable "billing_github_repo_id" {
+  description = "ID numerico imutavel do repositorio OficinaMecanica.Billing no GitHub (`gh api repos/willianrmattos/OficinaMecanica.Billing --jq .id`). O padrao e o id do repositorio criado em 2026-11-09 e fica aqui porque o CI nao le .tfvars. null desliga a criacao da identidade OIDC do Billing (so para um ambiente sem o repositorio); com o id preenchido o modulo existe e o output billing_github_actions_client_id tem valor."
+  type        = string
+  default     = "1451863424"
+
+  validation {
+    condition     = var.billing_github_repo_id == null || can(regex("^[0-9]+$", var.billing_github_repo_id))
+    error_message = "billing_github_repo_id deve ser o ID numerico do repositorio (so digitos) ou null."
+  }
+}
+
+variable "execucao_github_repo" {
+  description = "Repositorio GitHub do OficinaMecanica.Execucao no formato 'owner/repo' - usado pelo modulo github_oidc_aks_app pra restringir as Federated Identity Credentials (push em main/release) a esse repositorio."
+  type        = string
+  default     = "willianrmattos/OficinaMecanica.Execucao"
+}
+
+variable "execucao_github_owner_id" {
+  description = "ID numerico imutavel da conta 'willianrmattos' no GitHub - mesmo valor de seguranca_github_owner_id (mesma conta, repositorio diferente)."
+  type        = string
+  default     = "33045692"
+}
+
+variable "execucao_github_repo_id" {
+  description = "ID numerico imutavel do repositorio OficinaMecanica.Execucao no GitHub (`gh api repos/willianrmattos/OficinaMecanica.Execucao --jq .id`). O padrao e o id do repositorio criado em 2026-11-09 e fica aqui porque o CI nao le .tfvars. null desliga a criacao da identidade OIDC do Execucao (so para um ambiente sem o repositorio); com o id preenchido o modulo existe e o output execucao_github_actions_client_id tem valor."
+  type        = string
+  default     = "1451865555"
+
+  validation {
+    condition     = var.execucao_github_repo_id == null || can(regex("^[0-9]+$", var.execucao_github_repo_id))
+    error_message = "execucao_github_repo_id deve ser o ID numerico do repositorio (so digitos) ou null."
+  }
 }
 
 variable "tags" {

@@ -51,3 +51,14 @@ tráfego chegar em qualquer um dos dois backends.
   tecnicamente possível via `azurerm_api_management_backend` apontando pra
   um IP interno, mas perderia o roteamento/health checking que o
   ingress-nginx ja fornece dentro do cluster.
+
+## Atualizacao (microsservicos)
+A APIM passou a fronteiar quatro APIs, nao duas: alem de `oficinaserver`
+(`ingress-nginx`, catch-all `/`) e `segurancaserver` (Function App),
+`billingserver` e `execucaoserver` apontam para o MESMO `ingress-nginx`,
+diferenciados por prefixo de path no backend (`http://<ip>/billing`,
+`http://<ip>/execucao`), removido pelo `rewrite-target` do Ingress de cada
+servico. A premissa de que a APIM concatena o path do backend com o path da
+operacao ainda nao foi confirmada no ambiente real (README, "Pendente de
+confirmacao no ambiente real"). A decisao original - APIM como gateway unico na
+frente do `ingress-nginx` e da Function App - nao mudou.

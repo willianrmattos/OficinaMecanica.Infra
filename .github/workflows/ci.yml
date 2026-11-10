@@ -7,9 +7,14 @@ on:
     branches: [main, release]
   workflow_dispatch:
 
+# So em PR uma execucao nova cancela a anterior (la o job e apenas plan, sem
+# efeito colateral). Em push/disparo manual em main/release nao cancelo: o
+# apply mexe em recursos demorados (APIM, AKS, Helm) e cancelar no meio pode
+# deixar um recurso criado fora do state e o lock do state preso. As
+# execucoes na mesma ref ficam enfileiradas.
 concurrency:
   group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read
@@ -21,20 +26,25 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
       - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
+        uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3.1.2
         with:
           terraform_version: "1.15.7"
 
       - name: Terraform fmt check
         run: terraform fmt -check -recursive
 
+      # Prova local (sem Azure) a condicao do bloqueio de /health/ready e /metrics
+      # na APIM: le o proprio apim/bloqueio-health-ready-e-metrics.xml.
+      - name: Teste local do bloqueio de /health/ready e /metrics (APIM)
+        run: python3 -I docs/apim/testar_bloqueio_health_ready_e_metrics.py
+
       # Identidade unica do repo (module.github_oidc_infra) - cobre tanto
       # PR (plan) quanto push em main/release (apply, job abaixo).
       - name: Azure Login (OIDC)
-        uses: azure/login@v2
+        uses: azure/login@7184910d9eb2b1c5e48f7073824a90609bb9b6d6 # v2.3.1
         with:
           client-id: ${{ vars.AZURE_CLIENT_ID }}
           tenant-id: ${{ vars.AZURE_TENANT_ID }}
@@ -52,11 +62,15 @@ jobs:
       - name: Terraform Plan
         run: terraform plan -input=false -lock=false
         env:
-          TF_VAR_sql_administrator_login_password: ${{ secrets.TF_VAR_SQL_ADMINISTRATOR_LOGIN_PASSWORD }}
+          TF_VAR_sql_app_os_password: ${{ secrets.TF_VAR_SQL_APP_OS_PASSWORD }}
+          TF_VAR_sql_app_seguranca_password: ${{ secrets.TF_VAR_SQL_APP_SEGURANCA_PASSWORD }}
+          TF_VAR_sql_app_billing_password: ${{ secrets.TF_VAR_SQL_APP_BILLING_PASSWORD }}
           TF_VAR_apim_publisher_email: ${{ secrets.TF_VAR_APIM_PUBLISHER_EMAIL }}
           TF_VAR_seguranca_seed_admin_senha: ${{ secrets.TF_VAR_SEGURANCA_SEED_ADMIN_SENHA }}
           TF_VAR_seguranca_seed_admin_cpf: ${{ secrets.TF_VAR_SEGURANCA_SEED_ADMIN_CPF }}
           TF_VAR_newrelic_license_key: ${{ secrets.TF_VAR_NEWRELIC_LICENSE_KEY }}
+          TF_VAR_mercadopago_access_token: ${{ secrets.TF_VAR_MERCADOPAGO_ACCESS_TOKEN }}
+          TF_VAR_mercadopago_webhook_secret: ${{ secrets.TF_VAR_MERCADOPAGO_WEBHOOK_SECRET }}
 
   apply:
     name: Terraform Apply
@@ -68,10 +82,10 @@ jobs:
       id-token: write
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
       - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
+        uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3.1.2
         with:
           terraform_version: "1.15.7"
 
@@ -79,7 +93,7 @@ jobs:
       # so essa credential federada e restrita a push em main/release, nunca
       # alcancavel a partir de um PR.
       - name: Azure Login (OIDC)
-        uses: azure/login@v2
+        uses: azure/login@7184910d9eb2b1c5e48f7073824a90609bb9b6d6 # v2.3.1
         with:
           client-id: ${{ vars.AZURE_CLIENT_ID }}
           tenant-id: ${{ vars.AZURE_TENANT_ID }}
@@ -91,8 +105,12 @@ jobs:
       - name: Terraform Apply
         run: terraform apply -input=false -auto-approve
         env:
-          TF_VAR_sql_administrator_login_password: ${{ secrets.TF_VAR_SQL_ADMINISTRATOR_LOGIN_PASSWORD }}
+          TF_VAR_sql_app_os_password: ${{ secrets.TF_VAR_SQL_APP_OS_PASSWORD }}
+          TF_VAR_sql_app_seguranca_password: ${{ secrets.TF_VAR_SQL_APP_SEGURANCA_PASSWORD }}
+          TF_VAR_sql_app_billing_password: ${{ secrets.TF_VAR_SQL_APP_BILLING_PASSWORD }}
           TF_VAR_apim_publisher_email: ${{ secrets.TF_VAR_APIM_PUBLISHER_EMAIL }}
           TF_VAR_seguranca_seed_admin_senha: ${{ secrets.TF_VAR_SEGURANCA_SEED_ADMIN_SENHA }}
           TF_VAR_seguranca_seed_admin_cpf: ${{ secrets.TF_VAR_SEGURANCA_SEED_ADMIN_CPF }}
           TF_VAR_newrelic_license_key: ${{ secrets.TF_VAR_NEWRELIC_LICENSE_KEY }}
+          TF_VAR_mercadopago_access_token: ${{ secrets.TF_VAR_MERCADOPAGO_ACCESS_TOKEN }}
+          TF_VAR_mercadopago_webhook_secret: ${{ secrets.TF_VAR_MERCADOPAGO_WEBHOOK_SECRET }}

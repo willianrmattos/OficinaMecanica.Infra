@@ -1,0 +1,17 @@
+<!-- Fragmento incluido na policy inbound das APIs de negocio (ver apim/main.tf
+     e docs/adr/0007). Responde 404 sem chamar o backend quando o FINAL do path
+     e /health/ready ou /metrics. O path e decodificado (%XX) e passado para
+     minusculas; barras repetidas e "/." entre ou depois dos segmentos sao
+     tolerados; um segmento ".." e tratado como path invalido. A condicao segue
+     a forma dos exemplos da documentacao da APIM (atributo entre aspas duplas,
+     com as aspas do literal C# sem escape), que e o formato rawxml em que o
+     provider azurerm envia a policy; por isso este arquivo nao e XML estrito.
+     A expressao evita os caracteres de marcacao XML (menor, maior,
+     e-comercial). /health (liveness) continua passando. -->
+<choose>
+  <when condition="@(Regex.IsMatch(System.Net.WebUtility.UrlDecode(context.Request.Url.Path).ToLowerInvariant(), @"/(health/(\.?/)*ready|metrics)(/\.?)*$|(^|/)\.\.(/|$)"))">
+    <return-response>
+      <set-status code="404" reason="Not Found" />
+    </return-response>
+  </when>
+</choose>
