@@ -40,6 +40,15 @@ resource "azurerm_key_vault_secret" "seguranca_seed_admin_senha" {
 # ler/exportar a chave privada em si) e "Key Vault Secrets User" no vault
 # inteiro (pra resolver os dois secrets acima via Key Vault Reference nos
 # app_settings do modulo functionapp).
+# Header OTLP da Function (Otel__Headers): o New Relic autentica o OTLP pelo header "api-key". Fica num secret proprio,
+# e nao no newrelic-license-key, porque a Key Vault Reference entrega o valor inteiro do secret e o exportador precisa do
+# texto "api-key=<chave>" pronto. A role Key Vault Secrets User da Function ja vale para o vault inteiro (abaixo).
+resource "azurerm_key_vault_secret" "seguranca_newrelic_otlp_headers" {
+  name         = "seguranca-newrelic-otlp-headers"
+  key_vault_id = module.keyvault.key_vault_id
+  value        = "api-key=${var.newrelic_license_key}"
+}
+
 resource "azurerm_role_assignment" "seguranca_functionapp_crypto_user" {
   scope                = azurerm_key_vault_key.seguranca_rsa.resource_versionless_id
   role_definition_name = "Key Vault Crypto User"

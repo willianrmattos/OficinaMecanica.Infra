@@ -119,6 +119,7 @@ module "functionapp" {
   rsa_key_name                     = var.seguranca_rsa_key_name
   sql_connection_string_secret_uri = "https://${var.key_vault_name}.vault.azure.net/secrets/seguranca-sql-connection-string/"
   seed_admin_senha_secret_uri      = "https://${var.key_vault_name}.vault.azure.net/secrets/seguranca-seed-admin-senha/"
+  otel_headers_secret_uri          = "https://${var.key_vault_name}.vault.azure.net/secrets/seguranca-newrelic-otlp-headers/"
   seed_admin_cpf                   = var.seguranca_seed_admin_cpf
 
   jwt_issuer   = var.seguranca_jwt_issuer

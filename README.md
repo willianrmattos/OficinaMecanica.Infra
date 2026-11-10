@@ -394,6 +394,7 @@ OpenTelemetry Collector.
 | `newrelic-license-key` | secret | este repo (`keyvault_secrets.tf`) | so registro auditavel: o Collector e o `nri-bundle` leem o `kubernetes_secret` que o Terraform cria no namespace `monitoring` |
 | `seguranca-sql-connection-string` (usuario `app_seguranca`) | secret | este repo (`seguranca_keyvault.tf`) | `OficinaMecanica.Seguranca` (Key Vault Reference na Function App) |
 | `seguranca-seed-admin-senha` | secret | este repo (`seguranca_keyvault.tf`) | `OficinaMecanica.Seguranca` (Key Vault Reference) |
+| `seguranca-newrelic-otlp-headers` | secret (`api-key=<license key>`) | este repo (`seguranca_keyvault.tf`) | `OficinaMecanica.Seguranca` (Key Vault Reference em `Otel__Headers`, telemetria OTLP direto para o New Relic) |
 | `seguranca-rs256` | **chave** RSA-2048 (`sign`/`verify`) | este repo (`seguranca_keyvault.tf`) | `OficinaMecanica.Seguranca` (`Key Vault Crypto User`, so nessa chave; a chave privada nunca sai do vault) |
 | `billing-sql-connection-string` (usuario `app_billing`) | secret | este repo (`billing_keyvault.tf`) | `OficinaMecanica.Billing` |
 | `mercadopago-access-token`, `mercadopago-webhook-secret` | secret | este repo (`billing_keyvault.tf`; valor via `TF_VAR_*`) | `OficinaMecanica.Billing` |

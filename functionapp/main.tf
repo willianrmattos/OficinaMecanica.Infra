@@ -67,6 +67,11 @@ resource "azurerm_linux_function_app" "this" {
     "ConnectionStrings__DefaultConnection" = "@Microsoft.KeyVault(SecretUri=${var.sql_connection_string_secret_uri})"
     "SeedAdmin__SenhaInicial"              = "@Microsoft.KeyVault(SecretUri=${var.seed_admin_senha_secret_uri})"
 
+    # Telemetria (OTLP direto para o New Relic, mesmo desenho dos outros servicos). O header leva a license key, entao
+    # tambem vai por Key Vault Reference; o endpoint nao e segredo.
+    "Otel__Endpoint" = var.otel_endpoint
+    "Otel__Headers"  = "@Microsoft.KeyVault(SecretUri=${var.otel_headers_secret_uri})"
+
     "JwtSettings__Issuer"           = var.jwt_issuer
     "JwtSettings__Audience"         = var.jwt_audience
     "JwtSettings__ExpiracaoMinutos" = tostring(var.jwt_expiracao_minutos)
