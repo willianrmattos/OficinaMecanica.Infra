@@ -49,6 +49,17 @@ variable "seed_admin_senha_secret_uri" {
   type        = string
 }
 
+variable "otel_endpoint" {
+  description = "Endpoint OTLP para onde a Function exporta traces, metricas e logs (Otel__Endpoint). O padrao e o OTLP do New Relic (conta US): a Function roda fora do cluster e nao alcanca o Collector do AKS."
+  type        = string
+  default     = "https://otlp.nr-data.net:4317"
+}
+
+variable "otel_headers_secret_uri" {
+  description = "URI do secret no Key Vault com o header OTLP (api-key=<license key>), referenciado via Key Vault Reference (@Microsoft.KeyVault(...)) em Otel__Headers."
+  type        = string
+}
+
 variable "seed_admin_cpf" {
   description = "CPF do admin inicial seedado (nao sensivel - so a senha e). Sem valor padrao: vem de var.seguranca_seed_admin_cpf, na raiz."
   type        = string
