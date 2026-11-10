@@ -1,6 +1,9 @@
 # ADR 0007: Bloqueio de `/health/ready` e `/metrics` na APIM
 
 ## Status
+**Atualizacao em 2026-11-10:** o repositorio ja foi aplicado, mas o bloqueio nao esta efetivo: chamando o APIM publicado, `/health/ready` e `/metrics` respondem 200 em todas as rotas
+(inclusive em `billingserver` e `execucaoserver`, onde o guard entra sempre). A causa nao foi investigada. O texto abaixo descreve a decisao e o roteiro como foram escritos.
+
 Aceito. Implementado em `apim/` (policy + `file()` em `apim/main.tf`); **ainda
 nao aplicado**: entra em vigor no primeiro `terraform apply` deste repositorio
 (merge em `release`/`main` aplica pelo CI), **em duas etapas**: Billing e
